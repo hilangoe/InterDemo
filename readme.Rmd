@@ -1,0 +1,3 @@
+## README
+
+This is a project looking to explain and predict civil war intervention. The 'interdemo_multinom' script runs several multinomial logit models with political distance between states predicting intervention, and the 'interdemo_ml' script is a work in progress training predictive models of intervention.
