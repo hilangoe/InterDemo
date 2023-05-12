@@ -220,3 +220,12 @@ ggplot(df.graph, aes(x= polydist, fill = intervention)) +
   geom_density(alpha = 0.7) +
   scale_fill_manual(values = cols) +
   facet_wrap("geo")
+
+
+# Maps --------------------------------------------------------------------
+
+# need df with civil wars, interveners, colors for recipient and supporter, coordinates for dyad members, and lines
+
+# map for all civil wars with intervention
+# maps for select wars or select years
+
