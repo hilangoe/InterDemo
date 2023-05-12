@@ -276,7 +276,7 @@ DiagPlot <- function(f, y, labels, worstN=10, size_adjust=0,right_margin=7,top_m
     if(obsy==1){
       count1<-count1+text_spacing
     }
-    if(count1==text_spacing){
+    if(count1==text_spacing){ 
       y1init=pdata$forecastOrder[i]
     }
     if(count0==text_spacing){
@@ -289,8 +289,8 @@ DiagPlot <- function(f, y, labels, worstN=10, size_adjust=0,right_margin=7,top_m
     ##############################
     ycolor<-ifelse(obsy==0,yblue,yred)
     ypos_text<-ifelse(obsy==0,
-                      (y0init+(count0-text_spacing)),
-                      (y1init+(count1-text_spacing))
+                      (y0init+(count0-text_spacing+400)), # ugly but necessary modification here because false negatives and false positives are so close
+                      (y1init+(count1-400-text_spacing*worstN)) # adding a multiplier here just to get cleaner separation
     )
     ifelse(pdata$forecastOrder[i]>ypos_text,LineSlope<-c(1,0),LineSlope<-c(0,1))
     labjust_left=1.1
@@ -375,11 +375,11 @@ rfdiag_gov <- DiagPlot(
   worstN=10, # reduced in vain effort to make more readable
   label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
   lab_adjust=.4,
-  right_margin=8,
+  right_margin=9,
   top_margin=5,
-  text_size=6,
+  text_size=5,
 #  bw=bw,
-  title="Random Forest"
+  title="Random Forest model of government-sided intervention."
 )
 
 pdf("_output/_figures/rf_diagnostic_gov.pdf")
@@ -394,11 +394,11 @@ rfdiag_reb <- DiagPlot(
   worstN=10, # reduced in vain effort to make more readable
   label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
   lab_adjust=.4,
-  right_margin=8,
+  right_margin=9,
   top_margin=5,
-  text_size=6,
+  text_size=5,
   #  bw=bw,
-  title="Random Forest"
+  title="Random Forest model of rebel-sided intervention."
 )
 
 pdf("_output/_figures/rf_diagnostic_reb.pdf")
