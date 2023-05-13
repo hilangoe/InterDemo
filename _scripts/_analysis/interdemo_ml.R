@@ -131,22 +131,30 @@ featurePlot(x = df.ml.train[, 20:27],
 
 # Recursive feature elimination -------------------------------------------
 
-# # gonna get back to this later
-# set.seed(46)
-# options(warn=-1)
-# 
-# subsets <- c(60, 65, 70, 74)
-# 
-# ctrl <- rfeControl(functions = rfFuncs,
-#                    method = "repeatedcv",
-#                    repeats = 5,
-#                    verbose = FALSE)
-# 
-# lmProfile <- rfe(x=df.ml.train[, 2:75], y=df.ml.train$intervention,
-#                  sizes = subsets,
-#                  rfeControl = ctrl)
-# # taking a while to compute
-# lmProfile
+set.seed(46)
+options(warn=-1)
+
+subsets <- c(60, 65, 70, 74)
+
+ctrl <- rfeControl(functions = rfFuncs,
+                   method = "repeatedcv",
+                   repeats = 5,
+                   verbose = FALSE)
+
+lmProfile <- rfe(x=df.ml.train[, 2:75], y=df.ml.train$intervention,
+                 sizes = subsets,
+                 rfeControl = ctrl)
+# taking a while to compute
+lmProfile
+
+rfe.predictors <- predictors(lmProfile)
+
+rfe.cut <- df.ml.train[, which((names(df.ml.train) %in% rfe.predictors)==FALSE)] %>%
+  colnames(.)
+rfe.cut <- rfe.cut[-1]
+# taking the DV out of the list
+
+df.ml.train.rfe <- df.ml.train[, which((names(df.ml.train) %in% rfe.cut)==FALSE)]
 
 # Training RF model -------------------------------------------------------
 
