@@ -54,7 +54,7 @@ df.ml$intervention <- factor(df.ml$intervention,
                                         levels = c(0, 1, 2))
 
 # # need to fix the level names cause caret can't handle the numerical values
-levels(df.ml.train$intervention) <- c("neutral", "gov", "rebel")
+levels(df.ml$intervention) <- c("neutral", "gov", "rebel")
 
 
 # need to fix ucdponset and pol_rel
@@ -154,7 +154,7 @@ rfe.cut <- df.ml.train[, which((names(df.ml.train) %in% rfe.predictors)==FALSE)]
 rfe.cut <- rfe.cut[-1]
 # taking the DV out of the list
 
-df.ml.train.rfe <- df.ml.train[, which((names(df.ml.train) %in% rfe.cut)==FALSE)]
+df.ml.train <- df.ml.train[, which((names(df.ml.train) %in% rfe.cut)==FALSE)]
 
 # Training RF model -------------------------------------------------------
 
@@ -203,7 +203,7 @@ head(predicted_rf)
 confusionMatrix(reference = df.ml.test3$intervention, data = predicted_rf, mode='everything', positive='MM')
 # performs ok on false positives (precision), but poorly on false negatives (recall)
 # better at predicting gov intervention than reb intervention
-
+# fairly good at distinguishing between gov and rebel support
 
 # DiagPlot function code --------------------------------------------------
 
@@ -418,7 +418,7 @@ dev.off()
 # had to do this earlier to get model to estimate in a timely manner
 # maybe try tuneGrid instead of tuneLength
 
-# Feature elimination ---------------------------------------------------
+# Additional feature elimination ---------------------------------------------------
 
 ## elnet (glmnet)
 
@@ -462,64 +462,72 @@ confusionMatrix(reference = df.ml.test3$intervention, data = predicted_svm, mode
 
 # xgBoost DART ------------------------------------------------------------
 
-# # gonna try parallelization to speed this up
+# gonna try parallelization to speed this up
+# setting number of cores
+num_cores <- detectCores()
+
+# registering cores
+registerDoParallel(num_cores)
+
+# defining a tuning grid
+# upped eta, gamma, and colsample
+tune_grid_p <- expand.grid(
+  nrounds = 100, # number of boosting rounds
+  max_depth = c(3, 6, 9), # max depth of trees
+  eta = 0.3, # learning rate, how much each new tree contributes to final model, low to prevent overfitting
+  gamma = 1, # might need to increase to make simpler trees and prevent overfitting
+  subsample = 0.8,
+  colsample_bytree = seq(0.5, 1, 0.1), # reducing complexity of each tree
+  rate_drop = 0.1,
+  skip_drop = 0.5,
+  min_child_weight = 1 # might increase to prevent overfitting
+)
+
+#revising the fit control
+fitControl_p <- trainControl(
+  method = "cv",
+  number = 5,
+  verboseIter = FALSE,
+  allowParallel = TRUE,
+  returnData = FALSE,
+  returnResamp = "all",
+  savePredictions = TRUE,
+  classProbs = TRUE,
+  summaryFunction = multiClassSummary
+)
+
+# combine option not producing the right output. tried "combine", which prompted error
+# might need to use 'rbind' or 'cbind' to generate matrix or df
+model_xgbdart_p <- foreach(ntree = rep(500, num_cores), .combine = "rbind") %dopar% {
+  train(
+    intervention ~ .,
+    data = df.ml.train,
+    method = 'xgbDART',
+    tuneGrid = tune_grid_p,
+    trControl = fitControl_p,
+    verbose = FALSE,
+    nthread = 1
+  )
+}
+## this is still taking a very long time to estimate
+
+# stopping the parallelization
+stopImplicitCluster()
+
+# time to combine the results
+model_xgbdart_p <- combine(model_xgbdart_p)
+
+model_xgbdart_p
+# hasn't combined properly. list of all four processes
+
+# # not working
+# predicted_xgb_p <- predict(model_xgbdart_p, df.ml.test3)
+# head(predicted_xgb_p)
 # 
-# 
-# # setting number of cores
-# num_cores <- detectCores()
-# 
-# # registering cores
-# registerDoParallel(num_cores)
-# 
-# # defining a tuning grid
-# # upped eta, gamma, and colsample
-# tune_grid_p <- expand.grid(
-#   nrounds = 100, # number of boosting rounds
-#   max_depth = c(3, 6, 9), # max depth of trees
-#   eta = 0.3, # learning rate, how much each new tree contributes to final model, low to prevent overfitting
-#   gamma = 1, # might need to increase to make simpler trees and prevent overfitting
-#   subsample = 0.8,
-#   colsample_bytree = seq(0.5, 1, 0.1), # reducing complexity of each tree
-#   rate_drop = 0.1,
-#   skip_drop = 0.5,
-#   min_child_weight = 1 # might increase to prevent overfitting
-# )
-# 
-# #revising the fit control
-# fitControl_p <- trainControl(
-#   method = "cv",
-#   number = 5,
-#   verboseIter = FALSE,
-#   allowParallel = TRUE,
-#   returnData = FALSE,
-#   returnResamp = "all",
-#   savePredictions = TRUE,
-#   classProbs = TRUE,
-#   summaryFunction = multiClassSummary
-# )
-# 
-# 
-# model_xgbdart_p <- foreach(ntree = rep(500, num_cores), .combine = combine) %dopar% {
-#   train(
-#     intervention ~ .,
-#     data = df.ml.train,
-#     method = 'xgbDART',
-#     tuneGrid = tune_grid_p,
-#     trControl = fitControl_p,
-#     verbose = FALSE,
-#     nthread = 1
-#   )
-# }
-# ## this is still taking a very long time to estimate
-# 
-# # stopping the parallelization
-# stopImplicitCluster()
-# 
-# # time to combine the results
-# model_xbgdart_p <- combine(model_xgbdart_p)
-# 
-# model_xbgdart_p
-# 
+# confusionMatrix(reference = df.ml.test3$intervention, data = predicted_xgb_p, mode='everything', positive='MM')
+
+
+
 # # old version
 # model_xgbdart = train(intervention ~ .,
 #                   data=df.ml.train,

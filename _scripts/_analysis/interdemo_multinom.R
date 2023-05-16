@@ -224,8 +224,96 @@ ggplot(df.graph, aes(x= polydist, fill = intervention)) +
 
 # Maps --------------------------------------------------------------------
 
+library(cshapes)
+library(sf)
+
 # need df with civil wars, interveners, colors for recipient and supporter, coordinates for dyad members, and lines
 
-# map for all civil wars with intervention
-# maps for select wars or select years
+# getting a shape file for world map in 1977
+cshp1977 <- cshp(date = as.Date("1977-1-1"), useGW = FALSE, dependencies = FALSE)
+str(cshp1977)
+
+# create df for civil war
+df.int1977.cw <- df.int %>%
+  filter(., year==1977) %>%
+  select(., ccode1) %>%
+  mutate(cw=1) %>%
+  rename(cowcode=ccode1)
+
+# create df for interveners
+df.int1977.int <- df.int %>%
+  filter(., year==1977 & intervention>=1) %>%
+  select(., ccode2, intervention) %>%
+  mutate(govsupport = ifelse(intervention==1, 1, 0)) %>%
+  mutate(rebsupport = ifelse(intervention==2, 1, 0)) %>%
+  group_by(ccode2) %>%
+  summarise_all(max) %>%
+  rename(cowcode=ccode2)
+
+# time to join
+cshp1977 <- left_join(cshp1977, df.int1977.cw, by = c("cowcode")) %>%
+  left_join(., df.int1977.int, by = c("cowcode"))
+
+# getting coordinates to fix the join
+
+capcoord <- data.frame(cowcode = cshp1977$cowcode,
+                       caplong = cshp1977$caplong,
+                       caplat = cshp1977$caplat)
+
+capcoord <- unique(capcoord)
+
+# creating dyadic df for 1977 with main vars
+# lot of things wrong here: need to filter by intervention, and then fix join
+df.int1977.dyad <- df.int %>%
+  filter(., year==1977 & intervention>=1) %>%
+  select(., ccode1, ccode2, intervention) %>%
+  left_join(., capcoord, by = c("ccode1" = "cowcode")) %>%
+  rename(caplong_d = caplong, caplat_d = caplat) %>%
+  left_join(., capcoord, by = c("ccode2" = "cowcode")) %>%
+  rename(caplong_t = caplong, caplat_t = caplat)
+  
+# need long and lat
+# need to just join data for that
+
+plot(st_geometry(cshp1977))
+cshp1977[is.na(cshp1977)] <- 0
+
+cshp1977 <- cshp1977 %>%
+  mutate(role = ifelse(cw==1, 1, ifelse(govsupport==1, 2, ifelse(rebsupport==1, 3, 0))))
+
+levels(cshp1977$role) <- c("Civil war", "Gov. supporter", "Rebel supporter")
+
+cols_map <- c("gray", "#F76D5E", "#FFFFBF", "#72D8FF")
+
+
+# good start! just need to work on color and direction now for geom_curve
+ggplot(data = cshp1977) +
+  geom_sf(aes(fill = as.factor(role))) +
+  scale_fill_manual(values = cols_map, name = "Intervention", labels = c("Neutral", "Civil war", "Gov. supporter", "Rebel supporter")) +
+  geom_curve(data = df.int1977.dyad, 
+             aes(x = caplong_t, y = caplat_t, xend = caplong_d, yend = caplat_d),
+           curvature = -0.2,
+           arrow = arrow(length = unit(0.1, "cm"), ends = "last"),
+           size = 1,
+           colour = "cadetblue4",
+           alpha = 0.8)
+
+# map for all civil wars with intervention: TBD
+
+
+# Alt map stuff -----------------------------------------------------------
+
+
+# library(maps)
+# world <- map_data("world")
+# str(world)
+# 
+# world <- left_join(world, df.int1977.cw, by = c("group" = "cowcode")) %>%
+#   left_join(., df.int1977.int, by = c("group" = "cowcode")) %>%
+#   world[is.na(world)] <- 0
+# 
+# ggplot(world, aes(x = long, y = lat, group = group)) + # need to fill in cw and int countries
+#   geom_polygon(aes(fill = as.factor(cw)))
+# 
+
 
