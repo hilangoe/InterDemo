@@ -437,6 +437,10 @@ df.ml.test2 <- predict(missing_model, df.ml.test)
 # transform vars
 df.ml.test3 <- predict(range_model, df.ml.test2)
 
+# now cutting vars that were eliminated via RFE
+
+df.ml.test3 <- df.ml.test3[, which((names(df.ml.test3) %in% rfe.cut)==FALSE)]
+
 # RF test -----------------------------------------------------------
 
 # now for RF model test:
