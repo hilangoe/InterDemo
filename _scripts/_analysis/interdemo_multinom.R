@@ -155,9 +155,9 @@ density_list <- lapply(target_variables, function(each_variable) {
 })
 
 # putting the graphs together
-density_graphs <- patchwork::wrap_plots(density_list, ncol = 2, guides = 'collect') &
+density_graphs <- patchwork::wrap_plots(density_list, ncol = 3, guides = 'collect') &
   theme(legend.position = 'bottom')
-ggsave(file = "_output/_figures/density.pdf", density_graphs)
+ggsave(file = "_output/_figures/density.png", density_graphs, width = 24, height = 18, dpi = 300)
 
 # let's take a look at this second peak of gov support
 govoutliers <- filter(df.graph, p2dist>0.65 & intervention=="Gov. support" & polity22>0.6 & polity21<0.6)
