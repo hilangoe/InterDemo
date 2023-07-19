@@ -191,7 +191,7 @@ DiagPlot <- function(f, y, labels, worstN=10, size_adjust=0,right_margin=7,top_m
 
 # dropping irrelevant variables
 df.ml <- df.int %>%
-  select(., -c("rivalryno", "rivalryname", "styear", "endyear", "govsupport", "rebsupport", "govsupportyear", "rebsupportyear", "bothsides", "geo_NA", "region", "type1", "type2", "type3", 'govrec', 'rebrec', 'conflictID', 'ccode1', 'ccode2')) %>%
+  select(., -c("rivalryno", "rivalryname", "styear", "endyear", "govsupport", "rebsupport", "govsupportyear", "rebsupportyear", "bothsides", "geo_NA", "region", "type1", "type2", "type3", 'govrec', 'rebrec')) %>%
   select(intervention, everything())
 # moving DV first in df
 
@@ -223,6 +223,13 @@ df.ml.train <- df.ml[train_RowNumbers,]
 
 df.ml.test <- df.ml[-train_RowNumbers,]
 
+# now pulling out identifiers into separate df
+trainID <- df.ml.train %>% select(ccode1, ccode2, conflictID, year)
+testID <- df.ml.test %>% select(ccode1, ccode2, conflictID, year)
+
+df.ml.train <- subset(df.ml.train, select = -c(ccode1, ccode2, conflictID, year))
+df.ml.test <- subset(df.ml.test, select = -c(ccode1, ccode2, conflictID, year))
+
 # storing rhs and outcome for later
 x = df.ml.train[, -1]
 y = df.ml.train$intervention
@@ -242,7 +249,7 @@ skimmed[42:56,]
 
 skimmed[57:71,]
 
-skimmed[72:75,] # might not be correct final column number
+skimmed[72:74,] # might not be correct final column number
 
 # overall, pretty good coverage on most variables except the San-Akca ones
 
@@ -281,14 +288,14 @@ featurePlot(x = df.ml.train[, 20:27],
 set.seed(46)
 options(warn=-1)
 
-subsets <- c(60, 65, 70, 74)
+subsets <- c(58, 63, 68, 73)
 
 ctrl <- rfeControl(functions = rfFuncs,
                    method = "repeatedcv",
                    repeats = 5,
                    verbose = FALSE)
 
-lmProfile <- rfe(x=df.ml.train[, 2:75], y=df.ml.train$intervention,
+lmProfile <- rfe(x=df.ml.train[, 2:74], y=df.ml.train$intervention,
                  sizes = subsets,
                  rfeControl = ctrl)
 # taking a while to compute
@@ -321,8 +328,10 @@ fitControl <- trainControl(
   summaryFunction = multiClassSummary
 )
 
-model_rf = train(intervention ~ ., data=df.ml.train, method='rf', tuneLength = 5, trControl = fitControl)
-# had some trouble with ROC here as metric, so using default instead
+model_rf = train(intervention ~ ., data=df.ml.train, method='rf', tuneLength = 5, trControl = fitControl, metric = "Mean_F1")
+# using Mean_F1 as the metric here, because accuracy and kappa are not appropriate for class-imbalanced data
+
+model_rf
 
 fitted.rf <- predict(model_rf)
 
@@ -348,13 +357,14 @@ model_elnet = train(intervention ~ .,
                       alpha = 0:1, 
                       lambda = seq(0, 15, by = 0.01)), #upping penalty here to see if it improves performance
                     maxit = 100000,
-                    trControl = fitControl)
+                    trControl = fitControl, metric = "Mean_F1")
 model_elnet
 # this is still causing issues with convergence without the tuneGrid specified
 
 # let's look at coefficients for feature elimination
 coef(model_elnet$finalModel, model_elnet$bestTune$lambda)
-# ucdp is only var pushed to zero, but that's because the best model is ridge
+# lot of vars pushed to zero with lasso being the best model using Mean_F1 as the metric for tuning
+# many of the vars pushed to zero were very important for RF model, including the various distance measures
 
 # Take 1: SVM training ---------------------------------------------------------------------
 
@@ -363,8 +373,10 @@ model_svm = train(intervention ~ .,
                     method='svmRadial', # not sure if this is the right option from kernlab
                     tuneLength = 15,
                     maxit = 100000,
-                    trControl = fitControl)
+                    trControl = fitControl, 
+                    metric = "Mean_F1")
 model_svm
+
 # Take 1: xgBoost DART training ------------------------------------------------------------
 
 # defining a tuning grid
@@ -407,6 +419,7 @@ model_xgbdart <- train(
   method = 'xgbDART',
   tuneGrid = tune_grid_p,
   trControl = fitControl_p,
+  metric = "Mean_F1",
   verbose = FALSE,
   nthread = 1
 )
@@ -415,6 +428,9 @@ model_xgbdart <- train(
 stopImplicitCluster()
 
 model_xgbdart
+
+prob.xgbdart <- predict(model_xgbdart, newdata = df.ml.train, type = "prob") %>%
+  rename(neutral = 1, gov = 2, reb = 3) # forgot why I did this..
 
 # Take 1: Comparing models ------------------------------------------------
 
@@ -426,46 +442,10 @@ scales <- list(x=list(relation="free"), y=list(relation="free"))
 bwplot(models_compare, scales=scales)
 # the statistics here on mean precision are very misleading
 
-# Test pre-processing -----------------------------------------------------------
+# bottom line: Elnet peforms the worst. XGBoost, SVM, and RF look somewhat promising
+# XGB best on precision (false positives), SVM best on recall (false negatives)
 
-# THIS WILL NEED TO BE UPDATED FOR TAKE 2
-
-# start by prepping test data with same pre-processing as training data
-# impute missing data
-df.ml.test2 <- predict(missing_model, df.ml.test)
-
-# transform vars
-df.ml.test3 <- predict(range_model, df.ml.test2)
-
-# now cutting vars that were eliminated via RFE
-
-df.ml.test3 <- df.ml.test3[, which((names(df.ml.test3) %in% rfe.cut)==FALSE)]
-
-# RF test -----------------------------------------------------------
-
-# now for RF model test:
-predicted_rf <- predict(model_rf, df.ml.test3)
-head(predicted_rf)
-
-# Confusion matrix
-confusionMatrix(reference = df.ml.test3$intervention, data = predicted_rf, mode='everything', positive='MM')
-# performs ok on false positives (precision), but poorly on false negatives (recall)
-# better at predicting gov intervention than reb intervention
-# fairly good at distinguishing between gov and rebel support
-
-# creating plot of confusion matrix: work in progress!
-tp_rf <- data.frame(
-  obs = df.ml.test3$intervention,
-  pred = predicted_rf
-)
-
-cm_rf <- conf_mat(tp_rf, obs, pred)
-
-autoplot(cm_rf, type = "heatmap") +
-  scale_fill_gradient(low="#D6EAF8",high = "#2E86C1")
-# not the prettiest, but it's a start
-
-# RF test graphs ----------------------------------------------------------------
+# RF model critique graphs ----------------------------------------------------------------
 
 df.rf.graph <- bind_cols(df.ml.train, prob.rf)
 
@@ -477,11 +457,8 @@ df.rf.graph <- df.rf.graph %>%
   mutate(int_gov = ifelse(intervention=="gov", 1, 0)) %>%
   mutate(int_reb = ifelse(intervention=="rebel", 1, 0))
 
-#also need to bring in styear, ccode1, and ccode2 from df.int
-
-df.id <- df.int[train_RowNumbers, c("styear", "ccode1", "ccode2")]
-
-df.rf.graph <- cbind(df.rf.graph, df.id)
+# bringing in id vars
+df.rf.graph <- cbind(df.rf.graph, trainID)
 
 df.rf.graph <- df.rf.graph %>%
   mutate(target = countrycode(ccode1, "cown", "country.name")) %>%
@@ -524,6 +501,399 @@ rfdiag_reb <- DiagPlot(
 pdf("_output/_figures/rf_diagnostic_reb.pdf")
 grid.draw(rfdiag_reb)
 dev.off()
+
+
+# XGBoost DART model critique graphs --------------------------------------
+
+df.xgbdart.graph <- bind_cols(df.ml.train, prob.xgbdart)
+
+df.xgbdart.graph <- df.xgbdart.graph %>% 
+  mutate(int_neutral = ifelse(intervention=="neutral", 1, 0)) %>%
+  mutate(int_gov = ifelse(intervention=="gov", 1, 0)) %>%
+  mutate(int_reb = ifelse(intervention=="rebel", 1, 0))
+
+# bringing in id vars
+df.xgbdart.graph <- cbind(df.xgbdart.graph, trainID)
+
+df.xgbdart.graph <- df.xgbdart.graph %>%
+  mutate(target = countrycode(ccode1, "cown", "country.name")) %>%
+  mutate(intervener = countrycode(ccode2, "cown", "country.name"))
+
+# plot: gov
+xgbdiag_gov <- DiagPlot(
+  f=df.xgbdart.graph$gov,
+  y=df.xgbdart.graph$int_gov,
+  labels= paste(df.xgbdart.graph$target,df.xgbdart.graph$intervener,sep='-'),
+  worstN=10, # reduced in vain effort to make more readable
+  label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
+  lab_adjust=.4,
+  right_margin=9,
+  top_margin=5,
+  text_size=5,
+  #  bw=bw,
+  title="XGBoost DART model of government-sided intervention."
+)
+
+pdf("_output/_figures/xgb_diagnostic_gov.pdf")
+grid.draw(xgbdiag_gov)
+dev.off()
+
+# plot: reb
+xgbdiag_reb <- DiagPlot(
+  f=df.xgbdart.graph$reb,
+  y=df.xgbdart.graph$int_reb,
+  labels= paste(df.xgbdart.graph$target,df.xgbdart.graph$intervener,sep='-'),
+  worstN=10, # reduced in vain effort to make more readable
+  label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
+  lab_adjust=.4,
+  right_margin=9,
+  top_margin=5,
+  text_size=5,
+  #  bw=bw,
+  title="XGBoost DART model of rebel-sided intervention."
+)
+
+pdf("_output/_figures/xgb_diagnostic_reb.pdf")
+grid.draw(xgbdiag_reb)
+dev.off()
+
+
+# Take 2: New variables ---------------------------------------------------
+
+# some common conflicts in the diagnostics of false predictions: Ethiopia, Myanmar, India
+
+# potential new variables: ccode2 already intervening in other conflict, ccode1 intervening in ccode2 (lagged), UN operation
+
+# get new df created by pulling in id
+df.ml.train2 <- cbind(df.ml.train, trainID)
+
+# now create var for existing conflict when current conflict started
+# creating df for conf-year
+ucdp_confyear <- ucdpexternal %>% 
+  rename(., year = ywp_year, ccode1 = locationid1) %>%
+  select(conflictID, ccode1, year) %>%
+  distinct()
+
+df.ml.train2 <- df.ml.train2 %>%
+  mutate(ongoingconf = mapply(function(a, c, sy) {
+    any(a == ucdp_confyear$ccode1 & c!=ucdp_confyear$conflictID &
+          sy == ucdp_confyear$year)
+  }, ccode1, conflictID, year))
+table(df.ml.train2$ongoingconf)
+
+# creating var for whether ccode2 is currently involved in another conflict in ccode2
+# start by creating df from ucdpexternal on the conf-dyad-year level
+ucdp_confdyadyear <- ucdpexternal %>% filter(., external_alleged==0 & external_nameid<1000 & external_exists==1) %>%
+  mutate(govrec = ifelse(str_detect(ywp_name, "^Government"), 1, 0)) %>%
+  mutate(rebrec = ifelse(govrec==0, 1, 0)) %>%
+  subset(., select = c("locationid1", "conflictID", "external_nameid", "govrec", "rebrec", "ywp_year")) %>%
+  rename(., ccode2 = external_nameid) %>%
+  rename(., ccode1 = locationid1) %>%
+  rename(., year = ywp_year) %>%
+  group_by(ccode1, ccode2, conflictID, year) %>%
+  summarise(govsup = max(govrec), rebsup = max(rebrec)) %>%
+  ungroup()
+
+# now creating the new variable for existing/recent ccode2 gov support to ccode1
+df.ml.train2 <- df.ml.train2 %>%
+  mutate(otherconfgov = mapply(function(a, b, c, sy) {
+    any(a == ucdp_confdyadyear$ccode1 & b == ucdp_confdyadyear$ccode2 &
+          c!=ucdp_confdyadyear$conflictID &
+          ucdp_confdyadyear$govsup==1 &
+          sy>=ucdp_confdyadyear$year & sy <= ucdp_confdyadyear$year +3) # can't be more than three years
+  }, ccode1, ccode2, conflictID, year))
+table(df.ml.train2$otherconfgov)
+
+# existing/recent rebel support
+df.ml.train2 <- df.ml.train2 %>%
+  mutate(otherconfreb = mapply(function(a, b, c, sy) {
+    any(a == ucdp_confdyadyear$ccode1 & b == ucdp_confdyadyear$ccode2 &
+          c!=ucdp_confdyadyear$conflictID &
+          ucdp_confdyadyear$rebsup==1 &
+          sy>=ucdp_confdyadyear$year & sy <= ucdp_confdyadyear$year +3)
+  }, ccode1, ccode2, conflictID, year))
+table(df.ml.train2$otherconfreb)
+
+# let's create vars for ccode1 intervening in ccode2 in recent years
+df.ml.train2 <- df.ml.train2 %>%
+  mutate(targetgovint = mapply(function(a, b, sy) {
+    any(a == ucdp_confdyadyear$ccode2 & b == ucdp_confdyadyear$ccode1 &
+          ucdp_confdyadyear$govsup==1 &
+          sy>ucdp_confdyadyear$year & sy<= ucdp_confdyadyear$year +3)
+  }, ccode1, ccode2, year))
+table(df.ml.train2$targetgovint)
+
+# ccode1 intervening on reb side in ccode2 in recent years
+df.ml.train2 <- df.ml.train2 %>%
+  mutate(targetrebint = mapply(function(a, b, sy) {
+    any(a == ucdp_confdyadyear$ccode2 & b == ucdp_confdyadyear$ccode1 &
+          ucdp_confdyadyear$rebsup==1 &
+          sy>ucdp_confdyadyear$year & sy<= ucdp_confdyadyear$year +3)
+  }, ccode1, ccode2, year))
+table(df.ml.train2$targetrebint)
+
+# to get numeric instead of boolean
+df.ml.train2 %<>% mutate_if(is.logical, as.numeric)
+
+# dropping the ID vars again
+df.ml.train2 <- subset(df.ml.train2, select = -c(ccode1, ccode2, conflictID, year))
+
+# storing rhs and outcome for later, take 2
+x = df.ml.train2[, -1]
+y = df.ml.train2$intervention
+
+
+# Take 2: RF train --------------------------------------------------------
+
+set.seed(2)
+
+fitControl <- trainControl(
+  method = 'cv', #k-fold cross validation
+  number = 5,
+  savePredictions = 'final',
+  #  classProbs = T, # I want predictions rather than probabilities
+  summaryFunction = multiClassSummary
+)
+
+model_rf2 = train(intervention ~ ., data=df.ml.train2, method='rf', tuneLength = 10, trControl = fitControl, metric = "Mean_F1")
+model_rf2
+
+# pulling out predictions for model critique below
+prob.rf2 <- predict(model_rf2, type = "prob") %>%
+  rename(neutral = 1, gov = 2, reb = 3) # forgot why I did this..
+
+# looking at variable importance
+varimp_rf2 <- varImp(model_rf2)
+
+plot(varimp_rf, main = "Variable importance with Random Forest")
+
+# Take 2: SVM training ----------------------------------------------------
+
+model_svm2 = train(intervention ~ ., 
+                  data=df.ml.train2, 
+                  method='svmRadial', # not sure if this is the right option from kernlab
+                  tuneLength = 30,
+                  maxit = 100000,
+                  trControl = fitControl, 
+                  metric = "Mean_F1")
+model_svm2
+
+
+# Take 2: XGBoost DART training -------------------------------------------
+
+tune_grid_p <- expand.grid(
+  nrounds = 200, # number of boosting rounds
+  max_depth = c(3, 6, 9), # max depth of trees
+  eta = 0.3, # learning rate, how much each new tree contributes to final model, low to prevent overfitting
+  gamma = 1, # might need to increase to make simpler trees and prevent overfitting
+  subsample = 0.8,
+  colsample_bytree = seq(0.5, 1, 0.1), # reducing complexity of each tree
+  rate_drop = 0.1,
+  skip_drop = 0.5,
+  min_child_weight = 1 # might increase to prevent overfitting
+)
+
+#revising the fit control
+fitControl_p <- trainControl(
+  method = "cv",
+  number = 5,
+  verboseIter = FALSE,
+  allowParallel = TRUE,
+  returnData = FALSE,
+  returnResamp = "all",
+  savePredictions = TRUE,
+  classProbs = TRUE,
+  summaryFunction = multiClassSummary
+)
+
+# gonna try parallelization to speed this up
+# setting number of cores
+num_cores <- detectCores()
+
+# registering cores
+registerDoParallel(num_cores)
+
+model_xgbdart2 <- train(
+  intervention ~ .,
+  data = df.ml.train2,
+  method = 'xgbDART',
+  tuneGrid = tune_grid_p,
+  trControl = fitControl_p,
+  metric = "Mean_F1",
+  verbose = FALSE,
+  nthread = 1
+)
+
+#stopCluster(num_cores)
+stopImplicitCluster()
+
+model_xgbdart2
+
+# pulling out predictions for model critique graph
+prob.xgbdart2 <- predict(model_xgbdart2, newdata = df.ml.train2, type = "prob") %>%
+  rename(neutral = 1, gov = 2, reb = 3) #renaming predicted prob vars
+
+# Take 2: Compare models --------------------------------------------------
+
+models_compare2 <- resamples(list(RF=model_rf2, SVM=model_svm2, XGB=model_xgbdart2))
+
+summary(models_compare2)
+
+models_compare1_2 <- resamples(list(RF1=model_rf, RF2=model_rf2, SVM1=model_svm, SVM2=model_svm2, XGB1=model_xgbdart, XGB2=model_xgbdart2))
+summary(models_compare1_2)
+
+
+# Take 2: RF model critique graph --------------------------------------------------
+
+df.rf.graph <- bind_cols(df.ml.train2, prob.rf2)
+
+df.rf.graph <- df.rf.graph %>% 
+  mutate(int_neutral = ifelse(intervention=="neutral", 1, 0)) %>%
+  mutate(int_gov = ifelse(intervention=="gov", 1, 0)) %>%
+  mutate(int_reb = ifelse(intervention=="rebel", 1, 0))
+
+# bringing in id vars
+df.rf.graph <- cbind(df.rf.graph, trainID)
+
+df.rf.graph <- df.rf.graph %>%
+  mutate(target = countrycode(ccode1, "cown", "country.name")) %>%
+  mutate(intervener = countrycode(ccode2, "cown", "country.name"))
+
+# plot: gov
+rfdiag_gov <- DiagPlot(
+  f=df.rf.graph$gov,
+  y=df.rf.graph$int_gov,
+  labels= paste(df.rf.graph$target,df.rf.graph$intervener,sep='-'),
+  worstN=10, # reduced in vain effort to make more readable
+  label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
+  lab_adjust=.4,
+  right_margin=9,
+  top_margin=5,
+  text_size=5,
+  #  bw=bw,
+  title="Random Forest model of government-sided intervention (take 2)."
+)
+
+pdf("_output/_figures/rf_diagnostic_gov_take2.pdf")
+grid.draw(rfdiag_gov)
+dev.off()
+
+# plot: reb
+rfdiag_reb <- DiagPlot(
+  f=df.rf.graph$reb,
+  y=df.rf.graph$int_reb,
+  labels= paste(df.rf.graph$target,df.rf.graph$intervener,sep='-'),
+  worstN=10, # reduced in vain effort to make more readable
+  label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
+  lab_adjust=.4,
+  right_margin=9,
+  top_margin=5,
+  text_size=5,
+  #  bw=bw,
+  title="Random Forest model of rebel-sided intervention (take 2)."
+)
+
+pdf("_output/_figures/rf_diagnostic_reb_take2.pdf")
+grid.draw(rfdiag_reb)
+dev.off()
+
+# Take 2: XGBoost DART model critique graph -------------------------------
+
+df.xgbdart.graph <- bind_cols(df.ml.train2, prob.xgbdart2)
+
+df.xgbdart.graph <- df.xgbdart.graph %>% 
+  mutate(int_neutral = ifelse(intervention=="neutral", 1, 0)) %>%
+  mutate(int_gov = ifelse(intervention=="gov", 1, 0)) %>%
+  mutate(int_reb = ifelse(intervention=="rebel", 1, 0))
+
+# bringing in id vars
+df.xgbdart.graph <- cbind(df.xgbdart.graph, trainID)
+
+df.xgbdart.graph <- df.xgbdart.graph %>%
+  mutate(target = countrycode(ccode1, "cown", "country.name")) %>%
+  mutate(intervener = countrycode(ccode2, "cown", "country.name"))
+
+# plot: gov
+xgbdiag_gov <- DiagPlot(
+  f=df.xgbdart.graph$gov,
+  y=df.xgbdart.graph$int_gov,
+  labels= paste(df.xgbdart.graph$target,df.xgbdart.graph$intervener,sep='-'),
+  worstN=10, # reduced in vain effort to make more readable
+  label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
+  lab_adjust=.4,
+  right_margin=9,
+  top_margin=5,
+  text_size=5,
+  #  bw=bw,
+  title="XGBoost DART model of government-sided intervention (take 2)."
+)
+
+pdf("_output/_figures/xgb_diagnostic_gov_take2.pdf")
+grid.draw(xgbdiag_gov)
+dev.off()
+
+# plot: reb
+xgbdiag_reb <- DiagPlot(
+  f=df.xgbdart.graph$reb,
+  y=df.xgbdart.graph$int_reb,
+  labels= paste(df.xgbdart.graph$target,df.xgbdart.graph$intervener,sep='-'),
+  worstN=10, # reduced in vain effort to make more readable
+  label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
+  lab_adjust=.4,
+  right_margin=9,
+  top_margin=5,
+  text_size=5,
+  #  bw=bw,
+  title="XGBoost DART model of rebel-sided interventio (take 2)n."
+)
+
+pdf("_output/_figures/xgb_diagnostic_reb_take2.pdf")
+grid.draw(xgbdiag_reb)
+dev.off()
+
+# observations: significant improvement on false negatives on gov AND reb support
+# takeaway: got a lot better at correctly predicting intervention
+
+# Test pre-processing -----------------------------------------------------------
+
+# THIS WILL NEED TO BE UPDATED FOR TAKE 2
+
+# start by prepping test data with same pre-processing as training data
+# impute missing data
+df.ml.test2 <- predict(missing_model, df.ml.test)
+
+# transform vars
+df.ml.test3 <- predict(range_model, df.ml.test2)
+
+# now cutting vars that were eliminated via RFE
+
+df.ml.test3 <- df.ml.test3[, which((names(df.ml.test3) %in% rfe.cut)==FALSE)]
+
+# now need to add in new vars for take 2, first adding in testID vars
+
+# RF test -----------------------------------------------------------
+
+# now for RF model test:
+predicted_rf <- predict(model_rf, df.ml.test3)
+head(predicted_rf)
+
+# Confusion matrix
+confusionMatrix(reference = df.ml.test3$intervention, data = predicted_rf, mode='everything', positive='MM')
+# performs ok on false positives (precision), but poorly on false negatives (recall)
+# better at predicting gov intervention than reb intervention
+# fairly good at distinguishing between gov and rebel support
+
+# creating plot of confusion matrix: work in progress!
+tp_rf <- data.frame(
+  obs = df.ml.test3$intervention,
+  pred = predicted_rf
+)
+
+cm_rf <- conf_mat(tp_rf, obs, pred)
+
+autoplot(cm_rf, type = "heatmap") +
+  scale_fill_gradient(low="#D6EAF8",high = "#2E86C1")
+# not the prettiest, but it's a start
 
 # Elastic net test ------------------------------------------------
 
