@@ -856,65 +856,50 @@ dev.off()
 
 # Test pre-processing -----------------------------------------------------------
 
-# THIS WILL NEED TO BE UPDATED FOR TAKE 2
-
-# start by prepping test data with same pre-processing as training data
-# impute missing data
-df.ml.test2 <- predict(missing_model, df.ml.test)
-
-# transform vars
-df.ml.test3 <- predict(range_model, df.ml.test2)
-
-# now cutting vars that were eliminated via RFE
-
-df.ml.test3 <- df.ml.test3[, which((names(df.ml.test3) %in% rfe.cut)==FALSE)]
-
-# now need to add in new vars for take 2, first adding in testID vars
+# # THIS WILL NEED TO BE UPDATED FOR TAKE 2
+# 
+# # start by prepping test data with same pre-processing as training data
+# # impute missing data
+# df.ml.test2 <- predict(missing_model, df.ml.test)
+# 
+# # transform vars
+# df.ml.test3 <- predict(range_model, df.ml.test2)
+# 
+# # now cutting vars that were eliminated via RFE
+# 
+# df.ml.test3 <- df.ml.test3[, which((names(df.ml.test3) %in% rfe.cut)==FALSE)]
+# 
+# # now need to add in new vars for take 2, first adding in testID vars
 
 # RF test -----------------------------------------------------------
 
-# now for RF model test:
-predicted_rf <- predict(model_rf, df.ml.test3)
-head(predicted_rf)
-
-# Confusion matrix
-confusionMatrix(reference = df.ml.test3$intervention, data = predicted_rf, mode='everything', positive='MM')
-# performs ok on false positives (precision), but poorly on false negatives (recall)
-# better at predicting gov intervention than reb intervention
-# fairly good at distinguishing between gov and rebel support
-
-# creating plot of confusion matrix: work in progress!
-tp_rf <- data.frame(
-  obs = df.ml.test3$intervention,
-  pred = predicted_rf
-)
-
-cm_rf <- conf_mat(tp_rf, obs, pred)
-
-autoplot(cm_rf, type = "heatmap") +
-  scale_fill_gradient(low="#D6EAF8",high = "#2E86C1")
-# not the prettiest, but it's a start
-
-# Elastic net test ------------------------------------------------
-
-# testing elnet just to look at predictive performance
-predicted_elnet <- predict(model_elnet, df.ml.test3)
-head(predicted_elnet)
-
-confusionMatrix(reference = df.ml.test3$intervention, data = predicted_elnet, mode='everything', positive='MM')
-# really poor performance: need to tune on lambda
-
+# # now for RF model test:
+# predicted_rf <- predict(model_rf, df.ml.test3)
+# head(predicted_rf)
+# 
+# # Confusion matrix
+# confusionMatrix(reference = df.ml.test3$intervention, data = predicted_rf, mode='everything', positive='MM')
+# 
+# # creating plot of confusion matrix: work in progress!
+# tp_rf <- data.frame(
+#   obs = df.ml.test3$intervention,
+#   pred = predicted_rf
+# )
+# 
+# cm_rf <- conf_mat(tp_rf, obs, pred)
+# 
+# autoplot(cm_rf, type = "heatmap") +
+#   scale_fill_gradient(low="#D6EAF8",high = "#2E86C1")
 
 # SVM test --------------------------------------------------------
-predicted_svm <- predict(model_svm, df.ml.test3)
-head(predicted_svm)
-
-confusionMatrix(reference = df.ml.test3$intervention, data = predicted_svm, mode='everything', positive='MM')
-# suggests that there's not clustering here
+# predicted_svm <- predict(model_svm, df.ml.test3)
+# head(predicted_svm)
+# 
+# confusionMatrix(reference = df.ml.test3$intervention, data = predicted_svm, mode='everything', positive='MM')
 
 # XGBoost DART test -----------------------------------------------
 
-predicted_xgb <- predict(model_xgbdart, df.ml.test3)
-head(predicted_xgb)
-
-confusionMatrix(reference = df.ml.test3$intervention, data = predicted_xgb, mode='everything', positive='MM')
+# predicted_xgb <- predict(model_xgbdart, df.ml.test3)
+# head(predicted_xgb)
+# 
+# confusionMatrix(reference = df.ml.test3$intervention, data = predicted_xgb, mode='everything', positive='MM')
