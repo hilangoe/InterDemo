@@ -40,37 +40,37 @@ sumtable(df.int.noboth, vars = c('p2dist', 'polydist', 'libdist', 'libdemdist', 
 p2model1 <- multinom(intervention ~ p2dist + polity21 + polity22 + mindist + ongoingrivalry + cowmaj1 + cowmaj2, data = df.int.noboth)
 summary(p2model1)
 
-p2model2 <- multinom(intervention ~ p2dist + polity21 + polity22 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop_mc_1 + upop_mc_2 + cinc_mc_1 + cinc_mc_2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth, Hess = TRUE)
+p2model2 <- multinom(intervention ~ p2dist + polity21 + polity22 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop1 + upop2 + cinc1 + cinc2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth, Hess = TRUE)
 summary(p2model2)
 
 polymodel1 <- multinom(intervention ~ polydist + v2x_polyarchy1 + v2x_polyarchy2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2, data = df.int.noboth)
 summary(polymodel1)
 
-polymodel2 <- multinom(intervention ~ polydist + v2x_polyarchy1 + v2x_polyarchy2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop_mc_1 + upop_mc_2 + cinc_mc_1 + cinc_mc_2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth)
+polymodel2 <- multinom(intervention ~ polydist + v2x_polyarchy1 + v2x_polyarchy2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop1 + upop2 + cinc1 + cinc2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth)
 summary(polymodel2)
 
 libmodel1 <- multinom(intervention ~ libdist + v2x_liberal1 + v2x_liberal2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2, data = df.int.noboth)
 summary(libmodel1)
 
-libmodel2 <- multinom(intervention ~ libdist + v2x_liberal1 + v2x_liberal2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop_mc_1 + upop_mc_2 + cinc_mc_1 + cinc_mc_2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth)
+libmodel2 <- multinom(intervention ~ libdist + v2x_liberal1 + v2x_liberal2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop1 + upop2 + cinc1 + cinc2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth)
 summary(libmodel2)
 
 libdemmodel1 <- multinom(intervention ~ libdemdist + v2x_libdem1 + v2x_libdem2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2, data = df.int.noboth)
 summary(libdemmodel1)
 
-libdemmodel2 <- multinom(intervention ~ libdemdist + v2x_libdem1 + v2x_libdem2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop_mc_1 + upop_mc_2 + cinc_mc_1 + cinc_mc_2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth)
+libdemmodel2 <- multinom(intervention ~ libdemdist + v2x_libdem1 + v2x_libdem2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop1 + upop2 + cinc1 + cinc2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth)
 summary(libdemmodel2)
 
 openmodel1 <- multinom(intervention ~ opendist + kaopen1 + kaopen2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2, data = df.int.noboth)
 summary(openmodel1)
 
-openmodel2 <- multinom(intervention ~ opendist + kaopen1 + kaopen2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop_mc_1 + upop_mc_2 + cinc_mc_1 + cinc_mc_2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth)
+openmodel2 <- multinom(intervention ~ opendist + kaopen1 + kaopen2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop1 + upop2 + cinc1 + cinc2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth)
 summary(openmodel2)
 
 kappamodel1 <- multinom(intervention ~ kappavv + v2x_polyarchy1 + v2x_polyarchy2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2, data = df.int.noboth)
 summary(kappamodel1)
 
-kappamodel2 <- multinom(intervention ~ kappavv + v2x_polyarchy1 + v2x_polyarchy2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop_mc_1 + upop_mc_2 + cinc_mc_1 + cinc_mc_2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth)
+kappamodel2 <- multinom(intervention ~ kappavv + v2x_polyarchy1 + v2x_polyarchy2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop1 + upop2 + cinc1 + cinc2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth)
 summary(kappamodel2)
 
 # joint table
@@ -127,7 +127,7 @@ df.corr.full <- left_join(df.corr, df.corr_p, by = c('var1', 'var2')) %>%
   arrange(., desc(corr_abs))
 # this yields a very large df
 
-varlist <- c('p2dist', 'polity21', 'polity22', 'mindist', 'ongoingrivalry', 'cowmaj1', 'cowmaj2', 'wbgdp2011est1', 'wbgdp2011est2', 'wbpopest1', 'wbpopest2', 'wbgdppc2011est1', 'wbgdppc2011est2', 'upop_mc_1', 'upop_mc_2', 'cinc_mc_1', 'cinc_mc_2', 'growth_wdi_1', 'growth_wdi_2', 'acdcwyear', 'acdiwyear')
+varlist <- c('p2dist', 'polity21', 'polity22', 'mindist', 'ongoingrivalry', 'cowmaj1', 'cowmaj2', 'wbgdp2011est1', 'wbgdp2011est2', 'wbpopest1', 'wbpopest2', 'wbgdppc2011est1', 'wbgdppc2011est2', 'upop1', 'upop2', 'cinc1', 'cinc2', 'growth_wdi_1', 'growth_wdi_2', 'acdcwyear', 'acdiwyear')
 
 df.corr.vars <- df.corr.full %>%
   filter(., df.corr.full$var1 %in% varlist & df.corr.full$var2 %in% varlist)

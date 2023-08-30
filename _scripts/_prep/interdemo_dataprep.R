@@ -17,6 +17,7 @@ library(fastDummies)
 library(peacesciencer)
 library(scales)
 library(vdemdata)
+library(labelled)
 rm(list=ls(all=TRUE))
 
 # Creating main dyadic df -------------------------------------------------
@@ -25,7 +26,7 @@ rm(list=ls(all=TRUE))
 download_extdata()
 
 # creading dyad-year dataset for the population of potential interveners, starting a year prior to sample for lagging RHS
-dyadyear <- create_dyadyears(system = "cow", subset_years = c(1974:2009)) %>%
+dyadyear <- create_dyadyears(system = "cow", subset_years = c(1974:2017)) %>%
   add_contiguity() %>%
   add_minimum_distance() %>%
   add_cow_alliance() %>%
@@ -35,6 +36,8 @@ dyadyear <- create_dyadyears(system = "cow", subset_years = c(1974:2009)) %>%
   add_cow_mids(keep = c("cowmidongoing", "cowmidonset")) %>%
   add_cow_trade() %>%
   add_sdp_gdp() %>%
+  add_nmc() %>%
+  select(., -c("tpop1", "tpop2")) %>%
   add_democracy() %>%
   select(., -c("v2x_polyarchy1", "v2x_polyarchy2")) %>%
   add_fpsim(keep = c("kappava", "kappavv")) %>%
@@ -131,13 +134,27 @@ acdongoingcw <- read.dta13("_data/_raw/acdcwyear.dta") %>%
 acdongoingiw <- read.dta13("_data/_raw/acdiwyear.dta") %>%
   rename(., ccode2 = ccode)
 
-# add in more covariates: i really should clean this all up and consolidate, avoid dupes from peacesciencer
-cov1 <- read.dta13("_data/_raw/covariates1.dta") %>%
-  select(., c("ccode1", "year", "upop_mc_1", "cinc_mc_1", "milex_mc_1", "milper_mc_1", "growth_wdi_1", "pop_den_wdi_1"))
+# gonna pull in growth and pop density vars from graham
+# growth_WDI and pop_den_WDI
+load("_data/_raw/graham.RDATA")
+graham <- ipe_v5 %>%
+  ungroup() %>%
+  select(ccode, year, growth_WDI, pop_den_WDI) %>%
+  filter(year>1974) %>%
+  rename(growth_wdi = growth_WDI, pop_den_wdi = pop_den_WDI) %>%
+  distinct() %>%
+  remove_var_label() %>%
+  mutate(growth_wdi = as.numeric(growth_wdi)) %>%
+  mutate(pop_den_wdi = as.numeric(pop_den_wdi))
+class(graham$growth_wdi)
+class(graham$pop_den_wdi)
 
-cov2 <- read.dta13("_data/_raw/covariates2.dta") %>%
-  select(., c("ccode2", "year", "upop_mc_2", "cinc_mc_2", "milex_mc_2", "milper_mc_2", "growth_wdi_2", "pop_den_wdi_2"))
+cov1 <- graham %>%
+  rename(ccode1 = ccode, growth_wdi_1 = growth_wdi, pop_den_wdi_1 = pop_den_wdi)
 
+cov2 <- graham %>%
+  rename(ccode2 = ccode, growth_wdi_2 = growth_wdi, pop_den_wdi_2 = pop_den_wdi)
+class(cov2$growth_wdi_2)
 
 # Joining dyad df and RHS -------------------------------------------------
 
@@ -163,60 +180,131 @@ save(df.dyadyear, file = "_data/_processed/dyadyears.Rda")
 
 # Prepping civil war/intervention data ------------------------------------
 
-# civil war sample from UCDP
-ucdpexternal <- read.dta13("_data/_raw/externaldisaggregated.dta")
+# civil war sample from UCDP (updated)
+ucdpexternal <- read_excel("_data/_raw/ucdp_esd.xlsx")
 
+# pulling in ucdp actor translate table
+actor_translate <- read.csv("_data/_raw/translate_actor.csv")
+
+# let's prep the data
+ucdpexternal <- ucdpexternal %>%
+  mutate(ccode1 = countrycode(gwno_a, "gwn", "cown")) %>% # changing from GW code to COW
+  select(., -c(gwno_a)) %>% # dropping old var
+  rename(., conflictID = conflict_id) %>%
+  select(id, active, year, ccode1, everything())
+# some warnings on countrycode transformation, but only two NAs related to US-Grenada
+  
 # generate start year of civil war, with first year of observation as the start year
-ucdpstart <- ucdpexternal %>% 
-  group_by(., conflictID, locationid1) %>%
-  rename(., year = ywp_year, ccode1 = locationid1) %>%
+ucdpstart <- ucdpexternal %>%
+  group_by(., conflictID, ccode1) %>%
   summarise(year = min(year)) %>%
   ungroup() %>%
   mutate(., ucdponset = 1) %>%
-  mutate(., ccode1 = ifelse(ccode1==340, 345, ccode1)) %>%
   mutate(., ccode1 = ifelse(ccode1==678, 679, ccode1))
-# fixing yugoslavia and yemen so it'll merge with dyad year
+# fixing yemen so it'll merge with dyad year
 
 # joining dyadyear and ucdpstart
 # need to see which ones do not make it
 
 df.anti <- anti_join(ucdpstart, df.dyadyear, by = c("ccode1", "year"))
-# yugoslavia and yemen causing trouble, yet again. going to manually recode
+# yemen, angola, grenada, georgia, azerbaijan, bosnia, croatia, syria
+# not a member of the cow state list, so not gonna get covariates for these anyways
 
+# now to create the basic dyadic df, with each conflict having multiple obs per potential intervener
 df.int <- left_join(ucdpstart, df.dyadyear, by = c("ccode1", "year"))
+head(df.int)
 
 # intervener sample from UCDP
-ucdpint <- ucdpexternal %>% filter(., external_alleged==0 & external_nameid<1000 & external_exists==1) %>%
-  mutate(govrec = ifelse(str_detect(ywp_name, "^Government"), 1, 0)) %>%
-  mutate(rebrec = ifelse(govrec==0, 1, 0)) %>%
-  mutate(., govsupport = ifelse(govrec ==1 & external_type_X == 1, 3,
-                                ifelse(govrec ==1 & external_type_L == 1 & external_type_Y==0 & external_type_W==0 & external_type_M==0 & external_type_T==0 & external_type_==0 & external_type_I==0 & external_type_O==0 & external_type_U==0 & external_type_X==0, 1,
-                                       ifelse(govrec ==1 & (external_type_Y==1 | external_type_W==1 | external_type_M==1 | external_type_T==1 | external_type_==1 | external_type_I==1 | external_type_O==1 | external_type_U==1), 2, 0)))) %>%
-  mutate(., govsupportyear = ifelse(govrec==1, ywp_year, NA)) %>%
-  mutate(., rebsupport = ifelse(rebrec ==1 & external_type_X == 1, 3,
-                                ifelse(rebrec ==1 & external_type_L == 1 & external_type_Y==0 & external_type_W==0 & external_type_M==0 & external_type_T==0 & external_type_==0 & external_type_I==0 & external_type_O==0 & external_type_U==0 & external_type_X==0, 1,
-                                       ifelse(rebrec ==1 & (external_type_Y==1 | external_type_W==1 | external_type_M==1 | external_type_T==1 | external_type_==1 | external_type_I==1 | external_type_O==1 | external_type_U==1), 2, 0)))) %>%
-  mutate(., rebsupportyear = ifelse(rebrec==1, ywp_year, NA)) %>%
-  subset(., select = c("conflictID", "external_nameid", "govrec", "rebrec", "govsupport", "rebsupport", "govsupportyear", "rebsupportyear")) %>%
-  rename(., ccode2 = external_nameid) %>%
+ucdpint <- ucdpexternal %>% 
+  filter(., ext_alleged==0 & ext_nonstate==0 & ext_sup==1 & ext_elements==0) %>% # filtering out various non-state and alleged interventions
+  mutate(govrec = ifelse(actor_nonstate==0, 1, 0)) %>%
+  mutate(rebrec = ifelse(actor_nonstate==1, 1, 0)) %>%
+  mutate(., govsupport = ifelse(govrec ==1 & ext_x == 1, 3,
+                                ifelse(govrec ==1 & ext_l == 1 & ext_y==0 & ext_w==0 & ext_m==0 & ext_t==0 & ext_f==0 & ext_i==0 & ext_o==0 & ext_u==0 & ext_x==0, 1,
+                                       ifelse(govrec ==1 & (ext_y==1 | ext_w==1 | ext_m==1 | ext_t==1 | ext_f==1 | ext_i==1 | ext_o==1 | ext_u==1), 2, 0)))) %>%
+  mutate(., govsupportyear = ifelse(govrec==1, year, NA)) %>%
+  mutate(., rebsupport = ifelse(rebrec ==1 & ext_x == 1, 3,
+                                ifelse(rebrec ==1 & ext_l == 1 & ext_y==0 & ext_w==0 & ext_m==0 & ext_t==0 & ext_f==0 & ext_i==0 & ext_o==0 & ext_u==0 & ext_x==0, 1,
+                                       ifelse(rebrec ==1 & (ext_y==1 | ext_w==1 | ext_m==1 | ext_t==1 | ext_f==1 | ext_i==1 | ext_o==1 | ext_u==1), 2, 0)))) %>%
+  mutate(., rebsupportyear = ifelse(rebrec==1, year, NA)) %>%
+  left_join(., actor_translate, by = c('ext_id' = 'new_id')) %>%
+  rename(ccode2 = old_id) %>%
+  subset(., select = c("conflictID", "ccode2", "govrec", "rebrec", "govsupport", "rebsupport", "govsupportyear", "rebsupportyear")) %>%
   group_by(conflictID, ccode2) %>%
   summarise(
     across(c(1, 2, 3, 4), max, na.rm= TRUE),
     across(c(5, 6), min, na.rm = TRUE)
   ) %>%
+  ungroup() %>%
   mutate(., govsupportyear = ifelse(govsupportyear==Inf, NA, govsupportyear)) %>%
   mutate(., rebsupportyear = ifelse(rebsupportyear==Inf, NA, rebsupportyear))
 
-df.int <- left_join(df.int, ucdpint, by = c("conflictID", "ccode2"))
+filter(ucdpint, is.na(ccode2))
+# mostly east germany and malta, for some reason
 
 # check missing: not sure of what
 missingdyad <- anti_join(ucdpint, df.int, by = c("conflictID", "ccode2"))
+
+df.int <- left_join(df.int, ucdpint, by = c("conflictID", "ccode2"))
+
+# OLD ---------------------------------------------------------------------
+
+# 
+# 
+# # civil war sample from UCDP
+# ucdpexternal <- read.dta13("_data/_raw/externaldisaggregated.dta")
+# 
+# # generate start year of civil war, with first year of observation as the start year
+# ucdpstart <- ucdpexternal %>% 
+#   group_by(., conflictID, locationid1) %>%
+#   rename(., year = ywp_year, ccode1 = locationid1) %>%
+#   summarise(year = min(year)) %>%
+#   ungroup() %>%
+#   mutate(., ucdponset = 1) %>%
+#   mutate(., ccode1 = ifelse(ccode1==340, 345, ccode1)) %>%
+#   mutate(., ccode1 = ifelse(ccode1==678, 679, ccode1))
+# # fixing yugoslavia and yemen so it'll merge with dyad year
+# 
+# # joining dyadyear and ucdpstart
+# # need to see which ones do not make it
+# 
+# df.anti <- anti_join(ucdpstart, df.dyadyear, by = c("ccode1", "year"))
+# # yugoslavia and yemen causing trouble, yet again. going to manually recode
+# 
+# df.int <- left_join(ucdpstart, df.dyadyear, by = c("ccode1", "year"))
+# 
+# # intervener sample from UCDP
+# ucdpint <- ucdpexternal %>% filter(., external_alleged==0 & external_nameid<1000 & external_exists==1) %>%
+#   mutate(govrec = ifelse(str_detect(ywp_name, "^Government"), 1, 0)) %>%
+#   mutate(rebrec = ifelse(govrec==0, 1, 0)) %>%
+#   mutate(., govsupport = ifelse(govrec ==1 & external_type_X == 1, 3,
+#                                 ifelse(govrec ==1 & external_type_L == 1 & external_type_Y==0 & external_type_W==0 & external_type_M==0 & external_type_T==0 & external_type_==0 & external_type_I==0 & external_type_O==0 & external_type_U==0 & external_type_X==0, 1,
+#                                        ifelse(govrec ==1 & (external_type_Y==1 | external_type_W==1 | external_type_M==1 | external_type_T==1 | external_type_==1 | external_type_I==1 | external_type_O==1 | external_type_U==1), 2, 0)))) %>%
+#   mutate(., govsupportyear = ifelse(govrec==1, ywp_year, NA)) %>%
+#   mutate(., rebsupport = ifelse(rebrec ==1 & external_type_X == 1, 3,
+#                                 ifelse(rebrec ==1 & external_type_L == 1 & external_type_Y==0 & external_type_W==0 & external_type_M==0 & external_type_T==0 & external_type_==0 & external_type_I==0 & external_type_O==0 & external_type_U==0 & external_type_X==0, 1,
+#                                        ifelse(rebrec ==1 & (external_type_Y==1 | external_type_W==1 | external_type_M==1 | external_type_T==1 | external_type_==1 | external_type_I==1 | external_type_O==1 | external_type_U==1), 2, 0)))) %>%
+#   mutate(., rebsupportyear = ifelse(rebrec==1, ywp_year, NA)) %>%
+#   subset(., select = c("conflictID", "external_nameid", "govrec", "rebrec", "govsupport", "rebsupport", "govsupportyear", "rebsupportyear")) %>%
+#   rename(., ccode2 = external_nameid) %>%
+#   group_by(conflictID, ccode2) %>%
+#   summarise(
+#     across(c(1, 2, 3, 4), max, na.rm= TRUE),
+#     across(c(5, 6), min, na.rm = TRUE)
+#   ) %>%
+#   mutate(., govsupportyear = ifelse(govsupportyear==Inf, NA, govsupportyear)) %>%
+#   mutate(., rebsupportyear = ifelse(rebsupportyear==Inf, NA, rebsupportyear))
+# 
+# df.int <- left_join(df.int, ucdpint, by = c("conflictID", "ccode2"))
+# 
+# # check missing: not sure of what
+# missingdyad <- anti_join(ucdpint, df.int, by = c("conflictID", "ccode2"))
 
 
 # Generating DV -----------------------------------------------------------
 
 df.int <- df.int %>%
-  filter(., year>=1975 & year<2010) %>%
+  filter(., year>=1975 & year<2018) %>%
   mutate(govrec = replace_na(govrec, 0)) %>%
   mutate(rebrec = replace_na(rebrec, 0)) %>%
   mutate(bothsides = ifelse(govrec==1 & rebrec==1, 1, 0)) %>%
@@ -226,6 +314,9 @@ df.int <- df.int %>%
   mutate(intervention = ifelse(bothsides==1 & govsupportyear<rebsupportyear, 1, 
                                ifelse(bothsides==1 & rebsupportyear<govsupportyear, 2, intervention)))
 
+table(df.int$intervention)
+table(df.int$govrec, df.int$rebrec)
+# seems most both-side obs started out as reb support
 
 # Generating some IVs -----------------------------------------------------
 
