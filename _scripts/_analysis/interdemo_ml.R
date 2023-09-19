@@ -297,6 +297,36 @@ featurePlot(x = df.ml.train[, 20:27],
             scales = list(x = list(relation="free"),
                           y = list(relation="free")))
 
+
+# Benchmark ---------------------------------------------------------------
+
+# training the libdem model with cv as a benchmark for the ml models
+
+# defining the model formula
+libdem_model <-  "intervention ~ libdemdist + v2x_libdem1 + v2x_libdem2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop1 + upop2 + cinc1 + cinc2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear" %>%
+  as.formula(.)
+libdem_model
+
+# Set up 5-fold cross-validation
+fitControl <- trainControl(
+  method = "cv",
+  number = 5,
+  savePredictions = 'final',
+  summaryFunction = multiClassSummary
+)
+
+
+set.seed(3)
+model_mlogit = train(
+  libdem_model, 
+  data=df.ml.train, 
+  method='multinom', 
+  trControl = fitControl, 
+  metric = "Mean_F1")
+
+print(model_mlogit)
+# Mean_F1 around 0.37
+
 # Recursive feature elimination -------------------------------------------
 
 # starting RFE
