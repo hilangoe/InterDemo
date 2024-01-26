@@ -264,8 +264,11 @@ skimmed[72:77,] # might not be correct final column number
 # overall, pretty good coverage on most variables except the San-Akca ones
 
 # let's look at the correlation plot first
-DataExplorer::plot_correlation(df.ml.train)
+corr_map <- DataExplorer::plot_correlation(df.ml.train)
 # looks like the trade, nmc, v-dem, and v-dem distance measures are highly correlated
+
+ggsave(file = "_output/_figures/corr_map.png", corr_map, width = 24, height = 24, dpi = 300)
+
 
 # Preprocessing --------------------------------------------------------------
 
