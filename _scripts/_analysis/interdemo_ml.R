@@ -483,6 +483,10 @@ best_tuning <- model_xgbdart$bestTune
 
 # Take 1: Comparing models ------------------------------------------------
 
+# saving models
+models_take1 <- list(model_rf, model_svm, model_xgbdart)
+save(models_take1, file = "_output/_models/models_take1.RData")
+
 models_compare <- resamples(list(RF=model_rf, SVM=model_svm, XGB=model_xgbdart))
 
 summary(models_compare)
@@ -1039,6 +1043,10 @@ plot(varimp_xgb2, main = "Variable importance with XGBoost DART (take 2)")
 dev.off()
 
 # Take 2: Compare models --------------------------------------------------
+
+# saving models
+models_take2 <- list(model_rf2, model_svm2, model_xgbdart2)
+save(models_take2, file = "_output/_models/models_take2.RData")
 
 models_compare2 <- resamples(list(RF=model_rf2, SVM=model_svm2, XGB=model_xgbdart2))
 
@@ -1780,6 +1788,10 @@ dev.off()
 
 # Take 3: Compare models --------------------------------------------------
 
+# saving models
+models_take3 <- list(model_rf3, model_svm3, model_xgbdart3)
+save(models_take3, file = "_output/_models/models_take3.RData")
+
 models_compare3 <- resamples(list(RF=model_rf3, SVM=model_svm3, XGB=model_xgbdart3))
 
 summary(models_compare3)
@@ -2464,6 +2476,87 @@ prototype2 <- prototype %>%
 ggplot(prototype2, aes(x = iteration, y = sum_error, color = as.factor(conflictID))) +
   geom_line()
 
+
+# Take 4: XGBoost DART re-tuning ------------------------------------------
+
+plot(model_xgbdart3)
+
+tune_grid_p <- expand.grid(
+  nrounds = c(150, 200, 250), # number of boosting rounds, cutting 100
+  max_depth = c(3, 6, 9), # max depth of trees
+  eta = c(0.05, 0.1, 0.15, 0.2, 0.25, 0.3), # default learning rate, how much each new tree contributes to final model, low to prevent overfitting
+  gamma = 1, # leaving low because elnet suggests no regularization; might need to increase to make simpler trees and prevent overfitting
+  subsample = 0.8,
+  colsample_bytree = seq(0.5, 1, 0.1), # reducing complexity of each tree
+  rate_drop = 0.1,
+  skip_drop = 0.5,
+  min_child_weight = c(0, 5, 10) # might increase to prevent overfitting
+)
+
+#revising the fit control
+fitControl_p <- trainControl(
+  method = "cv",
+  number = 5,
+  verboseIter = FALSE,
+  allowParallel = TRUE,
+  returnData = FALSE,
+  returnResamp = "all",
+  savePredictions = TRUE,
+  classProbs = TRUE,
+  summaryFunction = multiClassSummary
+)
+
+# gonna try parallelization to speed this up
+# setting number of cores
+num_cores <- detectCores()
+
+# registering cores
+registerDoParallel(num_cores)
+
+# this took ~94h on my mbp to run
+model_xgbdart4 <- train(
+  intervention ~ .,
+  data = df.ml.train3, # using same data as previous iteration
+  method = 'xgbDART',
+  tuneGrid = tune_grid_p,
+  trControl = fitControl_p,
+  metric = "Mean_F1",
+  verbose = FALSE,
+  nthread = 1
+)
+
+#stopCluster(num_cores)
+stopImplicitCluster()
+
+# saving model
+models_take4 <- list(model_xgbdart4)
+save(models_take4, file = "_output/_models/models_take4.RData")
+
+# pulling out tuning results for graphs (might wanna do a df with all hyperparameters using do.call())
+tuning_results <- model_xgbdart4$results
+mean_f1_values <- tuning_results$Mean_F1
+hyperparameter <- "colsample_bytree"
+hyp_value <- tuning_results[[hyperparameter]]
+
+#max(tuning_results[[15]])
+
+ggplot(tuning_results, aes(x= Mean_F1)) +
+  geom_density(alpha = 0.7, fill = "lightblue") +
+  th
+
+df <- data.frame(cbind(mean_f1_values, hyp_value))
+head(df)
+
+ggplot(df, aes(x = hyp_value, y = mean_f1_values, fill = factor(hyp_value))) +
+  geom_violin(alpha = 0.7) +
+  coord_flip() +
+  labs(title = paste("Violin plot of Mean F1 vs.", hyperparameter),
+       x = hyperparameter, y = "Mean F1") +
+  th +
+  guides(fill = FALSE)
+
+# need to add in learning rate, at least, and maybe subsample and lambda and alpha
+# can tighten boosting iterations and max_depth, cut bottom values
 
 # Test pre-processing -----------------------------------------------------------
 

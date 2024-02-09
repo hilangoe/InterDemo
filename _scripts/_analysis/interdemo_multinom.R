@@ -36,11 +36,31 @@ sumtable(df.int.noboth, vars = c('p2dist', 'polydist', 'libdist', 'libdemdist', 
 
 # Models ------------------------------------------------------------------
 
+# controls
+controls1 <- c("mindist", "ongoingrivalry", "cowmaj1", "cowmaj2")
+controls2 <- c("wbgdp2011est1", "wbgdp2011est2", "wbpopest1", "wbpopest2", "wbgdppc2011est1", "wbgdppc2011est2", "upop1", "upop2", "cinc1", "cinc2", "growth_wdi_1", "growth_wdi_2", "acdcwyear", "acdiwyear")
+
+# function for creating formula
+create_formula <- function(dv, iv, sparse = TRUE) {
+  # Initialize formula with dependent variable
+  formula <- paste(dv, "~", paste(iv, collapse = " + "), "+", paste(controls1, collapse = " + "))
+  
+  # Add controls2 only if sparse is FALSE
+  if (!sparse) {
+    formula <- paste(formula, "+", paste(controls2, collapse = " + "), collapse = " ")
+  }
+  
+  return(formula)
+}
+
+formula <- create_formula("intervention", c("p2dist", "polity21", "polity22"), sparse = FALSE)
+formula
+
 # models
 p2model1 <- multinom(intervention ~ p2dist + polity21 + polity22 + mindist + ongoingrivalry + cowmaj1 + cowmaj2, data = df.int.noboth)
 summary(p2model1)
 
-p2model2 <- multinom(intervention ~ p2dist + polity21 + polity22 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop1 + upop2 + cinc1 + cinc2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth, Hess = TRUE)
+p2model2 <- multinom(intervention ~ p2dist + polity21 + polity22 + mindist + ongoingrivalry + cowmaj1 + cowmaj2 + wbgdp2011est1 + wbgdp2011est2 + wbpopest1 + wbpopest2 + wbgdppc2011est1 + wbgdppc2011est2 + upop1 + upop2 + cinc1 + cinc2 + growth_wdi_1 + growth_wdi_2 + acdcwyear + acdiwyear, data = df.int.noboth, trace = FALSE)
 summary(p2model2)
 
 polymodel1 <- multinom(intervention ~ polydist + v2x_polyarchy1 + v2x_polyarchy2 + mindist + ongoingrivalry + cowmaj1 + cowmaj2, data = df.int.noboth)
@@ -99,16 +119,14 @@ model.names <- c('p2model1', 'p2model2', 'polymodel1', 'polymodel2', 'libmodel1'
 
 aictab(cand.set = models, modnames = model.names)
 
-# Graphs ------------------------------------------------------------------
-
-# let's look at the data
-
-cols <- c("#F76D5E", "#FFFFBF", "#72D8FF")
+# Correlation -------------------------------------------------------------
 
 # creating a DF with numerical vars only
 df.corr <- df.int.noboth %>% select(-c("conflictID", "ccode1", "ccode2", "year", "intervention", "rivalryname", "region", "type1", "type2", "type3", "geo"))
+head(df.corr, n = 20)
+class(df.corr)
 
-cor(df.corr)
+cor(df.corr, use = "pairwise.complete.obs")
 
 corrmatrix <- rcorr(as.matrix(df.corr))
 corrmatrix
@@ -132,10 +150,19 @@ varlist <- c('p2dist', 'polity21', 'polity22', 'mindist', 'ongoingrivalry', 'cow
 df.corr.vars <- df.corr.full %>%
   filter(., df.corr.full$var1 %in% varlist & df.corr.full$var2 %in% varlist)
 # suggests some risk of multicollinearity
+df.corr.vars
+
+# Graphs (descriptive statistics) ------------------------------------------------------------------
+
+th <- theme_light()
+
+cols <- c("#F76D5E", "#FFFFBF", "#72D8FF")
 
 ## graphing distribution of distance measures by conflictID
 
 df.graph <- df.int %>% filter(., intervention!=3)
+
+# let's look at the data
 
 # creating some labels and levels
 df.graph$intervention <- factor(df.graph$intervention,
@@ -146,50 +173,263 @@ df.graph$intervention <- factor(df.graph$intervention,
 # creating density graphs for the explanatory variables
 # setting list of explanatory variables
 target_variables <- c('p2dist', 'polydist', 'libdist', 'libdemdist', 'opendist', 'kappavv')
+labels <- c('Polity2', 'Polyarchy', 'Liberal', 'Liberal democracy', 'Trade openness', 'Kappa')
 
 # generating each density graph
-density_list <- lapply(target_variables, function(each_variable) {
-  ggplot(df.graph, aes(x = !!sym(each_variable), fill = factor(intervention))) +
+density_list <- lapply(seq_along(target_variables), function(i) {
+  ggplot(df.graph, aes(x = !!sym(target_variables[i]), fill = factor(intervention))) +
     geom_density(alpha = 0.7) +
-    scale_fill_manual(values = cols, name = "Intervention")
+    th +
+    scale_fill_manual(values = cols, name = "Intervention") +
+    labs(x = labels[i])  # Set x-axis label for each plot
 })
+
+title <- ggtitle("Measures of political and policy distance between states")
 
 # putting the graphs together
 density_graphs <- patchwork::wrap_plots(density_list, ncol = 3, guides = 'collect') &
-  theme(legend.position = 'bottom')
-ggsave(file = "_output/_figures/density.png", density_graphs, width = 24, height = 18, dpi = 300)
+  theme(legend.position = 'bottom') &
+  plot_annotation("Measures of political and policy distance", theme=theme(plot.title=element_text(hjust=0.1)))
 
-# let's take a look at this second peak of gov support
-govoutliers <- filter(df.graph, p2dist>0.65 & intervention=="Gov. support" & polity22>0.6 & polity21<0.6)
+ggsave(file = "_output/_figures/density.png", density_graphs, width = 8, height = 6, dpi = 300)
 
-govoutliers2 <- filter(df.graph, p2dist>0.65)
+# # let's take a look at this second peak of gov support
+# govoutliers <- filter(df.graph, p2dist>0.65 & intervention=="Gov. support" & polity22>0.6 & polity21<0.6)
+# 
+# govoutliers2 <- filter(df.graph, p2dist>0.65)
 
 # Various graphs ----------------------------------------------------------
 
 # graphing out the various explanatory variables, by themselves and by distance
 
-# looking at distribution of polydist by conflictID
-
-ggplot(df.graph, aes(x = mindist, fill = factor(intervention))) +
-  geom_density(alpha = 0.7) +
-  scale_fill_manual(values = cols, name = "Intervention", labels = c("No intervention", "Gov. support", "Rebel support"))
-
 # let's look at distance
 
-ggplot(df.graph, aes(x = mindist, fill = factor(intervention))) +
+p <- ggplot(df.graph, aes(x = mindist, fill = intervention)) +
   geom_density(alpha = 0.7) +
-  scale_fill_manual(values = cols, name = "Intervention", labels = c("No intervention", "Gov. support", "Rebel support"))
+  th +
+  scale_fill_manual(values = cols, name = "Intervention", labels = c("No intervention", "Gov. support", "Rebel support")) + 
+  labs(title = "Density of minimum distance by outcome",
+         x = "Minimum distance (km) between states",
+         y = "Density")
 # it's easier to support governments than rebels far away, for logistical reasons!
+ggsave(file = "_output/_figures/density_distance.png", p, width = 8, height = 6, dpi = 300)
 
-# distribution of polydist by outcome
+p <- ggplot(df.graph, aes(x = mindist, y = polydist)) +
+  geom_point(alpha = 0.5, aes(color= intervention)) +
+  geom_smooth(method = "lm") +
+  guides(color = FALSE) +
+  facet_wrap(~ intervention) +
+  th +
+  theme(strip.text = element_text(color = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "",
+         x = "Minimum distance (km) between states",
+         y = "Polyarchy distance")
 
-ggplot(df.graph, aes(x = polydist, fill = factor(intervention))) +
-  geom_density(alpha = 0.7) +
-  scale_fill_manual(values = cols, name = "Intervention", labels = c("No intervention", "Gov. support", "Rebel support"))
+ggsave(file = "_output/_figures/scatter_mindist_polydist.png", p, width = 8, height = 6, dpi = 300)
+
+
+p <- ggplot(subset(df.graph, intervention!="No intervention"), 
+       mapping = aes(x = mindist, 
+                     y = polydist,
+                     color = intervention,
+                     fill = intervention)) +
+  geom_point(alpha = 1) +
+  geom_smooth(method = "lm") +
+  th +
+  theme(strip.text = element_text(color = "black"),
+        axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "",
+       x = "Minimum distance (km) between states",
+       y = "Polyarchy distance",
+       color = "Intervention",
+       fill = "Intervention")
+ggsave(file = "_output/_figures/scatter_mindist_polydist_single.png", p, width = 8, height = 6, dpi = 300)
+
+
+# ggplot(subset(df.graph, intervention!="No intervention"), aes(x = intervention, y= mindist)) +
+#   th +
+#   geom_violin(alpha = 0.7, color="gray") +
+#   geom_jitter(alpha = 0.7, aes(color=intervention), position = position_jitter(width = 0.1)) +
+#   coord_flip()
+
+# Coefficient plots -------------------------------------------------------
+
+# function to calculate clustered standard errors, taken from stackoverflow
+# Chiba, then modified by Davenport, Soule, Armstrong
+mlogit.clust <- function(model,data,variable) {
+  beta <- c(t(coef(model)))
+  vcov <- vcov(model)
+  k <- length(beta)
+  n <- nrow(data)
+  max_lev <- length(model$lev)
+  xmat <- model.matrix(model)
+  # u is deviance residuals times model.matrix
+  u <- lapply(2:max_lev, function(x)
+    residuals(model, type = "response")[, x] * xmat)
+  u <- do.call(cbind, u)
+  m <- dim(table(data[,variable]))
+  u.clust <- matrix(NA, nrow = m, ncol = k)
+  fc <- as.factor(data[[variable]])
+  for (i in 1:k) {
+    u.clust[, i] <- tapply(u[, i], fc, sum)
+  }
+  cl.vcov <- vcov %*% ((m / (m - 1)) * t(u.clust) %*% (u.clust)) %*% vcov
+  return(cl.vcov = cl.vcov)
+}
+
+# ### BUG HUNTING
+# 
+# # Convert na.action to numeric vector of row indices
+# omitted_row_indices <- as.numeric(p2model2$na.action)
+# omitted_row_indices
+# 
+# # Subset the original dataframe to exclude omitted rows
+# subset_df <- df.int.noboth[-omitted_row_indices, ]
+# dim(subset_df)
+# 
+# var <- mlogit.clust(p2model2, subset_df, "conflictID")
+# 
+# ### DIAGNOSTICS MANUALLY
+# 
+# model_name <- "p2model2"
+# model <- get(model_name)
+# data <- subset_df
+# variable <- "conflictID"
+# 
+# 
+# beta <- c(t(coef(model)))
+# beta
+# vcov <- vcov(model)
+# vcov
+# k <- length(beta)
+# k
+# n <- nrow(data)
+# n
+# max_lev <- length(model$lev)
+# max_lev
+# xmat <- model.matrix(model)
+# xmat
+# # u is deviance residuals times model.matrix
+# u <- lapply(2:max_lev, function(x)
+#   residuals(model, type = "response")[, x] * xmat)
+# u
+# u <- do.call(cbind, u)
+# length(u)
+# m <- dim(table(data[,variable]))
+# m
+# u.clust <- matrix(NA, nrow = m, ncol = k)
+# dim(u.clust)
+# fc <- as.factor(data[[variable]])
+# unique(fc)
+# for (i in 1:k) {
+#   print(paste("Length of u[,", i, "]:", length(u[, i])))
+#   print(paste("Length of fc:", length(fc)))
+#   result <- tapply(u[, i], fc, sum)
+#   print(paste("Length of result of tapply:", length(result)))
+#   
+#   u.clust[, i] <- result
+# }
+# cl.vcov <- vcov %*% ((m / (m - 1)) * t(u.clust) %*% (u.clust)) %*% vcov
+
+### FUNCTION FOR LOOP
+
+# list of models
+model_names <- c('p2model2', 'polymodel2', 'libmodel2', 'libdemmodel2', 'openmodel2', 'kappamodel2')
+
+model_names <- c('p2model2')
+
+# initializing the df
+coef_df <- data.frame(
+  coefficient = numeric(),
+  se = numeric(),
+  lower = numeric(),
+  upper = numeric(),
+  mod = character(),
+  outcome = character(),
+  stringsAsFactors = FALSE
+)
+
+for (model_name in model_names) {
+  # retrieving the model without hardcoding
+  model <- get(model_name)
+  
+  # grabbing coefficients and se
+  coefficients <- coef(model)
+  # subset data (this should probably be done in the mlogit.clust function)
+  omitted_row_indices <- as.numeric(model$na.action)
+#  print(length(omitted_row_indices))
+  subset_df <- df.int.noboth[-omitted_row_indices, ]
+#  print(dim(subset_df))
+  
+  # adding var for cluster
+  var <- mlogit.clust(model, subset_df, "conflictID")
+  # use mlogit.clust for se
+  standard_errors <- sqrt(diag(var))
+  
+  # grabbing values for first variable
+  coefficient <- coefficients[1,2]
+  se <- standard_errors[2]
+  ymin <- coefficient - 1.96*se
+  ymax <- coefficient + 1.96*se
+  
+  # storing results in df
+  
+  result <- data.frame(
+    coefficient = coefficient,
+    se = se,
+    lower = ymin,
+    upper = ymax,
+    mod = model_name,
+    outcome = "No intervention",
+    stringsAsFactors = TRUE
+  )
+  coef_df <- rbind(coef_df, result)
+
+  # grabbing values for second variable
+  coefficient <- coefficients[2,2]
+  se <- standard_errors[(length(standard_errors)/2)+2]
+  ymin <- coefficient - 1.96*se
+  ymax <- coefficient + 1.96*se
+
+  result <- data.frame(
+    coefficient = coefficient,
+    se = se,
+    lower = ymin,
+    upper = ymax,
+    mod = model_name,
+    outcome = "Rebel support",
+    stringsAsFactors = TRUE
+  )  
+  coef_df <- rbind(coef_df, result)
+}
+# converting to factors
+coef_df$mod <- as.factor(coef_df$mod)
+coef_df$outcome <- as.factor(coef_df$outcome)
+row.names(coef_df) <- NULL
+
+coef_df
+
+p <- ggplot(coef_df, aes(x = mod, y = coefficient, color = outcome)) +
+  geom_pointrange(aes(ymin = lower, ymax = upper), size = 1) + # cut position = position_dodge(width = 0.5),
+  geom_hline(yintercept = 0) +
+  labs(title = "Coefficient plot for distance variables",
+       x = "Model",
+       y = "Coefficient",
+       color = "Outcome") +
+  coord_flip() +
+  th
+
+ggsave(file = "_output/_figures/coefplot.png", p, width = 8, height = 6, dpi = 300)
+
+
+# Old ---------------------------------------------------------------------
+
+
 
 # let's look at polydist and p2dist together
 
-ggplot(df.graph, aes(x = polydist, y = p2dist, color= factor(intervention))) +
+ggplot(df.graph, aes(x = polydist, y = p2dist, color= intervention)) +
   geom_point() + 
   scale_fill_manual(values = cols, name = "Intervention", labels = c("No intervention", "Gov. support", "Rebel support"))
 
