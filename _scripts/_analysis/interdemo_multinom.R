@@ -413,12 +413,13 @@ coef_df
 p <- ggplot(coef_df, aes(x = mod, y = coefficient, color = outcome)) +
   geom_pointrange(aes(ymin = lower, ymax = upper), size = 1) + # cut position = position_dodge(width = 0.5),
   geom_hline(yintercept = 0) +
+  coord_flip() +
   labs(title = "Coefficient plot for distance variables",
        x = "Model",
        y = "Coefficient",
        color = "Outcome") +
-  coord_flip() +
-  th
+  th +
+  guides(color = guide_legend(override.aes = list(linetype = "blank"))) # lines went vertical, so cut them from legend
 
 ggsave(file = "_output/_figures/coefplot.png", p, width = 8, height = 6, dpi = 300)
 

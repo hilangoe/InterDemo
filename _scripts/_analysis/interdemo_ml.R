@@ -40,8 +40,8 @@ library(readstata13)
 # bag svm: reduced space svm, iteration ???
 # need to reduce dimensionality as well as add more features
 
-# NOTES ON RE-DO:
-# other pre-processing required, like transformation
+# setting theme for plots
+th <- theme_light()
 
 # DiagPlot function code for model critique --------------------------------------------------
 
@@ -498,47 +498,43 @@ models_compare$values %>%
   gather(model, Accuracy, -1) %>%
   mutate(model = sub("~Accuracy", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = Accuracy, y = model)) -> p1
+  geom_boxplot(aes(x = Accuracy, y = model, fill = model)) -> p1
 
 p1 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p1
 
 models_compare$values %>%
   select(1, ends_with("F1")) %>%
   gather(model, F1, -1) %>%
   mutate(model = sub("~Mean_F1", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = F1, y = model)) -> p2
+  geom_boxplot(aes(x = F1, y = model, fill = model)) -> p2
 
 p2 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p2
 
 models_compare$values %>%
   select(1, ends_with("Precision")) %>%
   gather(model, Precision, -1) %>%
   mutate(model = sub("~Mean_Precision", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = Precision, y = model)) -> p3
+  geom_boxplot(aes(x = Precision, y = model, fill = model)) -> p3
 
 p3 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p3
 
 models_compare$values %>%
   select(1, ends_with("Recall")) %>%
   gather(model, Recall, -1) %>%
   mutate(model = sub("~Mean_Recall", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = Recall, y = model)) -> p4
+  geom_boxplot(aes(x = Recall, y = model, fill = model)) -> p4
 
 p4 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p4
 
 plot_list <- list(p1, p2, p3, p4)
 
 # putting the graphs together
 model_comp_boxplots1 <- patchwork::wrap_plots(plot_list, ncol = 2, guides = 'collect') &
-  theme(legend.position = 'bottom')
-ggsave(file = "_output/_figures/model_comp_boxplots1.png", model_comp_boxplots1, width = 24, height = 18, dpi = 300)
+  theme(legend.position = 'bottom') & scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) & th & guides(fill = FALSE)
+ggsave(file = "_output/_figures/model_comp_boxplots1.png", model_comp_boxplots1, width = 8, height = 6, dpi = 300)
 
 # ## lattice version
 # 
@@ -735,12 +731,10 @@ rfdiag_gov <- DiagPlot(
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="Random Forest model of government-sided intervention."
+  title="Predicting government support (RF)"
 )
 
-pdf("_output/_figures/rf1_diagplot_gov.pdf")
-grid.draw(rfdiag_gov)
-dev.off()
+ggsave(file = "_output/_figures/rf1_diagplot_gov.png", rfdiag_gov, width = 6, height = 6, dpi = 300)
 
 # plot: reb
 rfdiag_reb <- DiagPlot(
@@ -754,12 +748,10 @@ rfdiag_reb <- DiagPlot(
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="Random Forest model of rebel-sided intervention."
+  title="Predicting rebel support (RF)"
 )
 
-pdf("_output/_figures/rf1_diagplot_reb.pdf")
-grid.draw(rfdiag_reb)
-dev.off()
+ggsave(file = "_output/_figures/rf1_diagplot_reb.png", rfdiag_reb, width = 6, height = 6, dpi = 300)
 
 
 # XGBoost DART model critique graphs --------------------------------------
@@ -790,12 +782,10 @@ xgbdiag_gov <- DiagPlot(
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="XGBoost DART model of government-sided intervention."
+  title="Predicting government support (XGB)"
 )
 
-pdf("_output/_figures/xgb1_diagplot_gov.pdf")
-grid.draw(xgbdiag_gov)
-dev.off()
+ggsave(file = "_output/_figures/xgb1_diagplot_gov.png", xgbdiag_gov, width = 6, height = 6, dpi = 300)
 
 # plot: reb
 xgbdiag_reb <- DiagPlot(
@@ -804,18 +794,15 @@ xgbdiag_reb <- DiagPlot(
   labels= paste(df.xgbdart.graph$target,df.xgbdart.graph$intervener,df.xgbdart.graph$conflictID,sep='-'),
   worstN=10, # reduced in vain effort to make more readable
   label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
-  lab_adjust=.5,
+  lab_adjust=.55,
   right_margin=10,
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="XGBoost DART model of rebel-sided intervention."
+  title="Predicting rebel support (XGB)"
 )
 
-pdf("_output/_figures/xgb1_diagplot_reb.pdf")
-grid.draw(xgbdiag_reb)
-dev.off()
-
+ggsave(file = "_output/_figures/xgb1_diagplot_reb.png", xgbdiag_reb, width = 6, height = 6, dpi = 300)
 
 # Take 2: Feature selection/elimination ---------------------------------------------------
 
@@ -1062,47 +1049,43 @@ models_compare2$values %>%
   gather(model, Accuracy, -1) %>%
   mutate(model = sub("~Accuracy", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = Accuracy, y = model)) -> p1
+  geom_boxplot(aes(x = Accuracy, y = model,fill = model)) -> p1
 
 p1 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p1
 
 models_compare2$values %>%
   select(1, ends_with("F1")) %>%
   gather(model, F1, -1) %>%
   mutate(model = sub("~Mean_F1", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = F1, y = model)) -> p2
+  geom_boxplot(aes(x = F1, y = model,fill = model)) -> p2
 
 p2 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p2
 
 models_compare2$values %>%
   select(1, ends_with("Precision")) %>%
   gather(model, Precision, -1) %>%
   mutate(model = sub("~Mean_Precision", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = Precision, y = model)) -> p3
+  geom_boxplot(aes(x = Precision, y = model,fill = model)) -> p3
 
 p3 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p3
 
 models_compare2$values %>%
   select(1, ends_with("Recall")) %>%
   gather(model, Recall, -1) %>%
   mutate(model = sub("~Mean_Recall", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = Recall, y = model)) -> p4
+  geom_boxplot(aes(x = Recall, y = model,fill = model)) -> p4
 
 p4 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p4
 
 plot_list <- list(p1, p2, p3, p4)
 
 # putting the graphs together
 model_comp_boxplots2 <- patchwork::wrap_plots(plot_list, ncol = 2, guides = 'collect') &
-  theme(legend.position = 'bottom')
-ggsave(file = "_output/_figures/model_comp_boxplots2.png", model_comp_boxplots2, width = 24, height = 18, dpi = 300)
+  theme(legend.position = 'bottom') & scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) & th & guides(fill = FALSE)
+ggsave(file = "_output/_figures/model_comp_boxplots2.png", model_comp_boxplots2, width = 8, height = 6, dpi = 300)
 
 # confusion matrices
 
@@ -1151,17 +1134,15 @@ rfdiag_gov <- DiagPlot(
   labels= paste(df.rf.graph$target,df.rf.graph$intervener,df.rf.graph$conflictID,sep='-'),
   worstN=10, # reduced in vain effort to make more readable
   label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
-  lab_adjust=.5,
+  lab_adjust=.55,
   right_margin=10,
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="Random Forest model of government-sided intervention (take 2)."
+  title="Predicting government support (RF, take 2)"
 )
 
-pdf("_output/_figures/rf2_diagplot_gov.pdf")
-grid.draw(rfdiag_gov)
-dev.off()
+ggsave(file = "_output/_figures/rf2_diagplot_gov.png", rfdiag_gov, width = 6, height = 6, dpi = 300)
 
 # plot: reb
 rfdiag_reb <- DiagPlot(
@@ -1175,12 +1156,10 @@ rfdiag_reb <- DiagPlot(
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="Random Forest model of rebel-sided intervention (take 2)."
+  title="Predicting rebel support (RF, take 2)"
 )
 
-pdf("_output/_figures/rf2_diagplot_reb.pdf")
-grid.draw(rfdiag_reb)
-dev.off()
+ggsave(file = "_output/_figures/rf2_diagplot_reb.png", rfdiag_reb, width = 6, height = 6, dpi = 300)
 
 # takeaways: poor on Ukraine gov sided; better on rebel sided; clearer improvement overall on reb prediction
 # takeaways: bad on gov-sided false negatives, better (and improving) on reb-sided false negatives
@@ -1210,17 +1189,16 @@ xgbdiag_gov <- DiagPlot(
   labels= paste(df.xgbdart.graph$target,df.xgbdart.graph$intervener, df.xgbdart.graph$conflictID,sep='-'),
   worstN=10, # reduced in vain effort to make more readable
   label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
-  lab_adjust=.5,
+  lab_adjust=.55,
   right_margin=10,
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="XGBoost DART model of government-sided intervention (take 2)."
+  title="Predicting government support, (XGB, take 2)"
 )
 
-pdf("_output/_figures/xgb2_diagplot_gov.pdf")
-grid.draw(xgbdiag_gov)
-dev.off()
+ggsave(file = "_output/_figures/xgb2_diagplot_gov.png", xgbdiag_gov, width = 6, height = 6, dpi = 300)
+
 
 # plot: reb
 xgbdiag_reb <- DiagPlot(
@@ -1229,17 +1207,15 @@ xgbdiag_reb <- DiagPlot(
   labels= paste(df.xgbdart.graph$target,df.xgbdart.graph$intervener, df.xgbdart.graph$conflictID,sep='-'),
   worstN=10, # reduced in vain effort to make more readable
   label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
-  lab_adjust=.5,
+  lab_adjust=.55,
   right_margin=10,
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="XGBoost DART model of rebel-sided interventio (take 2)."
+  title="Predicting rebel support, (XGB, take 2)"
 )
 
-pdf("_output/_figures/xgb2_diagplot_reb.pdf")
-grid.draw(xgbdiag_reb)
-dev.off()
+ggsave(file = "_output/_figures/xgb2_diagplot_reb.png", xgbdiag_reb, width = 6, height = 6, dpi = 300)
 
 # takeaways: worse on all counts it seems
 # remaining issues: false positives on gov-sided in Ethiopia and Mali; false negatives on gov-sided in Ethiopia
@@ -1678,12 +1654,39 @@ model_rf3
 prob.rf3 <- predict(model_rf3, type = "prob") %>%
   rename(neutral = 1, gov = 2, reb = 3)
 
-# looking at variable importance
-varimp_rf3 <- varImp(model_rf3)
+# creating manual variable importance plot
+importance <- varImp(model_rf3, scale = FALSE)
 
-pdf("_output/_figures/rf3_varimp.pdf")
-plot(varimp_rf3, main = "Variable importance with Random Forest (take 3)")
-dev.off()
+# recasting to dataframe for manipulation, first pulling out importance value and var names
+importance_values <- importance[[1]]
+variables <- rownames(importance_values)
+
+# Create a data frame
+importance_df <- data.frame(Variables = variables, Importance = importance_values)
+rownames(importance_df) <- NULL
+
+importance_df <- importance_df %>%
+  mutate(type = ifelse(grepl("1$", Variables), 1,
+                       ifelse(grepl("2$", Variables), 2, 0)))
+importance_df$type[importance_df$Variables=="geo_2"] <- 1
+
+# setting levels
+importance_df$type <- factor(importance_df$type,
+                                     levels = c(0, 1, 2), 
+                                     labels = c("Dyadic", "Civil war country", "Potential intervener"))
+
+head(importance_df)
+
+p <- ggplot(data = importance_df, aes(y = Overall, x = reorder(Variables, Overall), fill = type)) +
+  geom_bar(stat = "identity", alpha = 1) +
+  coord_flip() +
+  th +
+  labs(title = "Variable importance (Random Forest)", 
+       y = "Importance score",
+       x = "Feature",
+       fill = "Type") +
+  theme(legend.position = "bottom")
+ggsave(file = "_output/_figures/rf3_varimp.png", p, width = 15, height = 12, dpi = 300)
 
 # Take 3: SVM train -------------------------------------------------------
 
@@ -1780,11 +1783,35 @@ print(best_tuning_results)
 prob.xgbdart3 <- predict(model_xgbdart3, newdata = df.ml.train3, type = "prob") %>%
   rename(neutral = 1, gov = 2, reb = 3) #renaming predicted prob vars
 
-varimp_xgb3 <- varImp(model_xgbdart3)
+# creating manual variable importance plot
+importance <- xgb.importance(model = model_xgbdart3$finalModel) 
+importance <- importance[order(-Gain),]
 
-pdf("_output/_figures/xgb3_varimp.pdf")
-plot(varimp_xgb3, main = "Variable importance with XGBoost DART (take 3)")
-dev.off()
+head(importance)
+
+importance_df <- importance %>%
+  mutate(type = ifelse(grepl("1$", Feature), 1,
+                       ifelse(grepl("2$", Feature), 2, 0)))
+importance_df$type[importance_df$Feature=="geo_2"] <- 1
+
+# setting levels
+importance_df$type <- factor(importance_df$type,
+                             levels = c(0, 1, 2), 
+                             labels = c("Dyadic", "Civil war country", "Potential intervener"))
+
+
+
+
+p <- ggplot(data = importance_df, aes(y = Gain, x = reorder(Feature, Gain), fill = type)) +
+  geom_bar(stat = "identity", alpha = 1) +
+  coord_flip() +
+  th +
+  labs(title = "Variable importance (XGBoost DART)", 
+       y = "Gain score",
+       x = "Feature",
+       fill = "Type") +
+  theme(legend.position = "bottom")
+ggsave(file = "_output/_figures/xgb3_varimp.png", p, width = 15, height = 12, dpi = 300)
 
 # Take 3: Compare models --------------------------------------------------
 
@@ -1806,47 +1833,114 @@ models_compare3$values %>%
   gather(model, Accuracy, -1) %>%
   mutate(model = sub("~Accuracy", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = Accuracy, y = model)) -> p1
+  geom_boxplot(aes(x = Accuracy, y = model, fill = model)) -> p1
 
 p1 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p1
 
 models_compare3$values %>%
   select(1, ends_with("F1")) %>%
   gather(model, F1, -1) %>%
   mutate(model = sub("~Mean_F1", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = F1, y = model)) -> p2
+  geom_boxplot(aes(x = F1, y = model, fill = model)) -> p2
 
 p2 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p2
 
 models_compare3$values %>%
   select(1, ends_with("Precision")) %>%
   gather(model, Precision, -1) %>%
   mutate(model = sub("~Mean_Precision", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = Precision, y = model)) -> p3
+  geom_boxplot(aes(x = Precision, y = model, fill = model)) -> p3
 
 p3 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p3
 
 models_compare3$values %>%
   select(1, ends_with("Recall")) %>%
   gather(model, Recall, -1) %>%
   mutate(model = sub("~Mean_Recall", "", model)) %>%
   ggplot() +
-  geom_boxplot(aes(x = Recall, y = model)) -> p4
+  geom_boxplot(aes(x = Recall, y = model, fill = model)) -> p4
 
 p4 + scale_y_discrete(limits = c("RF", "SVM", "XGB"))
-p4
 
 plot_list <- list(p1, p2, p3, p4)
 
 # putting the graphs together
 model_comp_boxplots3 <- patchwork::wrap_plots(plot_list, ncol = 2, guides = 'collect') &
-  theme(legend.position = 'bottom')
-ggsave(file = "_output/_figures/model_comp_boxplots3.png", model_comp_boxplots3, width = 24, height = 18, dpi = 300)
+  theme(legend.position = 'bottom') & scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) & th & guides(fill = FALSE)
+ggsave(file = "_output/_figures/model_comp_boxplots3.png", model_comp_boxplots3, width = 8, height = 6, dpi = 300)
+
+# let's graph F1 performance over iteration
+
+f1_scores <- data.frame(
+  model = c("RF", "RF", "RF", "SVM", "SVM", "SVM", "XGB", "XGB", "XGB"),
+  iter = c("1", "2", "3", "1", "2", "3", "1", "2", "3"),
+  f1_score = c(
+    mean(model_rf$results$Mean_F1),
+    mean(model_rf2$results$Mean_F1),
+    mean(model_rf3$results$Mean_F1),
+    mean(model_svm$results$Mean_F1, na.rm = TRUE),
+    mean(model_svm2$results$Mean_F1, na.rm = TRUE),
+    mean(model_svm3$results$Mean_F1, na.rm = TRUE),
+    mean(model_xgbdart$results$Mean_F1),
+    mean(model_xgbdart2$results$Mean_F1),
+    mean(model_xgbdart3$results$Mean_F1)
+  )
+)
+f1_scores
+
+last_points <- f1_scores %>%
+  group_by(model) %>%
+  filter(row_number() == n())
+
+# p <- ggplot(f1_scores, aes(x = iter, y = f1_score, color = model, group = model)) +
+#   geom_line(size = 1.5) +
+#   geom_text(data = last_points, aes(label = model), hjust = -0.2, size = 5) +
+#   th +
+#   scale_color_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
+#   labs(title = "F1 Scores Across Models and Iterations",
+#        x = "Iteration",
+#        y = "Mean F1 Score",
+#        fill = "Model") +
+#   guides(color = FALSE) +
+#   scale_x_discrete(limits = c(1, 2, 3), expand = c(0, 0))
+# ggsave(file = "_output/_figures/model_comp_f1.png", p, width = 8, height = 6, dpi = 300)
+
+
+p <- ggplot(f1_scores, aes(x = iter, y = f1_score, color = model, group = model)) +
+  geom_line(size = 1.5) +
+  geom_label(data = subset(f1_scores, iter == max(iter)),
+             aes(label = model), hjust = 1.2, nudge_x = 0.1, show.legend = FALSE) +
+  th +
+  scale_color_manual(values=c("#999999", "#E69F00", "#56B4E9")) +
+  labs(title = "F1 Scores Across Models and Iterations",
+       x = "Iteration",
+       y = "Mean F1 Score",
+       fill = "Model") +
+  guides(color = FALSE) +
+  scale_x_discrete(limits = c(1, 2, 3), expand = c(0, 0))
+ggsave(file = "_output/_figures/model_comp_line_f1.png", p, width = 8, height = 6, dpi = 300)
+
+# defining the order of models
+model_order <- c("SVM", "RF", "XGB")
+
+# convering model var to a factor with specified levels
+f1_scores$model <- factor(f1_scores$model, levels = model_order)
+
+# plot with specific order with the specified order
+p <- ggplot(f1_scores, aes(x = iter, y = f1_score, fill = model, group = model)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  th +
+  scale_fill_manual(values = c("#999999", "#E69F00", "#56B4E9")) +
+  labs(title = "F1 Scores Across Models and Iterations",
+       x = "Iteration",
+       y = "Mean F1 Score",
+       fill = "Model") +
+  guides(color = FALSE)
+ggsave(file = "_output/_figures/model_comp_bar_f1.png", p, width = 8, height = 6, dpi = 300)
+
+
 
 # let's create confusion matrices
 
@@ -1957,12 +2051,10 @@ rfdiag_gov <- DiagPlot(
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="Random Forest model of government-sided intervention (take 3)."
+  title="Predicting government support (RF, take 3)"
 )
 
-pdf("_output/_figures/rf3_diagplot_gov.pdf")
-grid.draw(rfdiag_gov)
-dev.off()
+ggsave(file = "_output/_figures/rf3_diagplot_gov.png", rfdiag_gov, width = 6, height = 6, dpi = 300)
 
 # plot: reb
 rfdiag_reb <- DiagPlot(
@@ -1976,12 +2068,10 @@ rfdiag_reb <- DiagPlot(
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="Random Forest model of rebel-sided intervention (take 3)."
+  title="Predicting rebel support (RF, take 3)"
 )
 
-pdf("_output/_figures/rf3_diagplot_reb.pdf")
-grid.draw(rfdiag_reb)
-dev.off()
+ggsave(file = "_output/_figures/rf3_diagplot_reb.png", rfdiag_reb, width = 6, height = 6, dpi = 300)
 
 # Take 3: XGBoost DART model critique graph -------------------------------
 
@@ -2006,17 +2096,15 @@ xgbdiag_gov <- DiagPlot(
   labels= paste(df.xgbdart.graph$target,df.xgbdart.graph$intervener, df.xgbdart.graph$conflictID,sep='-'),
   worstN=10, # reduced in vain effort to make more readable
   label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
-  lab_adjust=.5,
+  lab_adjust=.55,
   right_margin=10,
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="XGBoost DART model of government-sided intervention (take 3)."
+  title="Predicting government support (XGB, take 3)"
 )
 
-pdf("_output/_figures/xgb3_diagplot_gov.pdf")
-grid.draw(xgbdiag_gov)
-dev.off()
+ggsave(file = "_output/_figures/xgb3_diagplot_gov.png", xgbdiag_gov, width = 6, height = 6, dpi = 300)
 
 # plot: reb
 xgbdiag_reb <- DiagPlot(
@@ -2025,17 +2113,15 @@ xgbdiag_reb <- DiagPlot(
   labels= paste(df.xgbdart.graph$target,df.xgbdart.graph$intervener, df.xgbdart.graph$conflictID,sep='-'),
   worstN=10, # reduced in vain effort to make more readable
   label_spacing = 500, # had to up this substantially to make more readable, but still not working properly
-  lab_adjust=.5,
+  lab_adjust=.55,
   right_margin=10,
   top_margin=5,
   text_size=5,
   #  bw=bw,
-  title="XGBoost DART model of rebel-sided interventio (take 3)."
+  title="Predicting rebel support (XGB, take 3)"
 )
 
-pdf("_output/_figures/xgb3_diagplot_reb.pdf")
-grid.draw(xgbdiag_reb)
-dev.off()
+ggsave(file = "_output/_figures/xgb3_diagplot_reb.png", xgbdiag_reb, width = 6, height = 6, dpi = 300)
 
 # Take 3: Analyzing prediction errors -------------------------------------
 
@@ -2229,6 +2315,7 @@ for (label in labels) {
   }
 }
 
+# creating df for top 10 worst
 worst_cases_gov <- graph_cases %>%
   group_by(target, conflictID) %>%
   summarise(sum_error_gov_1 = sum(abs_error_gov_1), 
@@ -2248,18 +2335,18 @@ worst_cases_gov <- graph_cases %>%
 
 head(worst_cases_gov, n = 10)
 
-worst_rf_gov <- ggplot(worst_cases_gov, aes(x = iteration, y = sum_error, color = as.factor(conflictID)), show.legend = FALSE) +
+p1 <- ggplot(worst_cases_gov, aes(x = iteration, y = sum_error, color = as.factor(conflictID)), show.legend = FALSE) +
   geom_line() +
   geom_label(data = subset(worst_cases_gov, iteration == max(iteration)),
              aes(label = lab), hjust = 1.2, nudge_x = 0.1, show.legend = FALSE) +
   guides(color = FALSE) +
   scale_x_continuous(breaks = seq(min(worst_cases_gov$iteration), max(worst_cases_gov$iteration), by = 1)) +
-  ggtitle("Worst predicted government support by conflict using Random Forest")
-
-pdf("_output/_figures/worst_rf_gov.pdf")
-grid.draw(worst_rf_gov)
-dev.off()
-
+  ggtitle("Worst predicted government support by conflict using Random Forest") +
+  labs(y = "Absolute error",
+      x = "Iteration") +
+  th +
+  scale_x_discrete(limits = c(1, 2, 3), expand = c(0, 0))
+ggsave(file = "_output/_figures/worst_rf_gov.png", p1, width = 8, height = 6, dpi = 300)
 
 # an alternative solution
 # library(ggrepel)
@@ -2292,17 +2379,19 @@ worst_cases_reb <- graph_cases %>%
 
 head(worst_cases_reb, n = 10)
 
-worst_rf_reb <- ggplot(worst_cases_reb, aes(x = iteration, y = sum_error, color = as.factor(conflictID)), show.legend = FALSE) +
+p2 <- ggplot(worst_cases_reb, aes(x = iteration, y = sum_error, color = as.factor(conflictID)), show.legend = FALSE) +
   geom_line() +
   geom_label(data = subset(worst_cases_reb, iteration == max(iteration)),
              aes(label = lab), hjust = 1.2, nudge_x = 0.1, show.legend = FALSE) +
   guides(color = FALSE) +
   scale_x_continuous(breaks = seq(min(worst_cases_reb$iteration), max(worst_cases_reb$iteration), by = 1)) +
-  ggtitle("Worst predicted rebel support by conflict using Random Forest")
+  ggtitle("Worst predicted rebel support by conflict using Random Forest") +
+  labs(y = "Absolute error",
+       x = "Iteration") +
+  th +
+  scale_x_discrete(limits = c(1, 2, 3), expand = c(0, 0))
+ggsave(file = "_output/_figures/worst_rf_reb.png", p2, width = 8, height = 6, dpi = 300)
 
-pdf("_output/_figures/worst_rf_reb.pdf")
-grid.draw(worst_rf_reb)
-dev.off()
 
 
 ### XGBoost DART
@@ -2362,17 +2451,18 @@ worst_cases_gov <- graph_cases %>%
 
 head(worst_cases_gov, n = 10)
 
-worst_xgbdart_gov <- ggplot(worst_cases_gov, aes(x = iteration, y = sum_error, color = as.factor(conflictID)), show.legend = FALSE) +
+p3 <- ggplot(worst_cases_gov, aes(x = iteration, y = sum_error, color = as.factor(conflictID)), show.legend = FALSE) +
   geom_line() +
   geom_label(data = subset(worst_cases_gov, iteration == max(iteration)),
              aes(label = lab), hjust = 1.2, nudge_x = 0.1, show.legend = FALSE) +
   guides(color = FALSE) +
   scale_x_continuous(breaks = seq(min(worst_cases_gov$iteration), max(worst_cases_gov$iteration), by = 1)) +
-  ggtitle("Worst predicted government support by conflict using XGBoost DART")
-
-pdf("_output/_figures/worst_xgbdart_gov.pdf")
-grid.draw(worst_xgbdart_gov)
-dev.off()
+  ggtitle("Worst predicted government support by conflict using XGBoost DART") +
+  labs(y = "Absolute error",
+       x = "Iteration") +
+  th +
+  scale_x_discrete(limits = c(1, 2, 3), expand = c(0, 0))
+ggsave(file = "_output/_figures/worst_xgbdart_gov.png", p3, width = 8, height = 6, dpi = 300)
 
 # rebel prediction error
 
@@ -2395,26 +2485,63 @@ worst_cases_reb <- graph_cases %>%
 
 head(worst_cases_reb, n = 10)
 
-worst_xgbdart_reb <- ggplot(worst_cases_reb, aes(x = iteration, y = sum_error, color = as.factor(conflictID)), show.legend = FALSE) +
+p4 <- ggplot(worst_cases_reb, aes(x = iteration, y = sum_error, color = as.factor(conflictID)), show.legend = FALSE) +
   geom_line() +
   geom_label(data = subset(worst_cases_reb, iteration == max(iteration)),
              aes(label = lab), hjust = 1.2, nudge_x = 0.1, show.legend = FALSE) +
   guides(color = FALSE) +
   scale_x_continuous(breaks = seq(min(worst_cases_reb$iteration), max(worst_cases_reb$iteration), by = 1)) +
-  ggtitle("Worst predicted rebel support by conflict using XGBoost DART")
+  ggtitle("Worst predicted rebel support by conflict using XGBoost DART") +
+  labs(y = "Absolute error",
+       x = "Iteration") +
+  th +
+  scale_x_discrete(limits = c(1, 2, 3), expand = c(0, 0))
+ggsave(file = "_output/_figures/worst_xgbdart_reb.png", p4, width = 8, height = 6, dpi = 300)
 
-pdf("_output/_figures/worst_xgbdart_reb.pdf")
-grid.draw(worst_xgbdart_reb)
-dev.off()
+# #putting them all together
+# 
+# plot_list <- list(p1, p2, p3, p4)
+# 
+# # putting the graphs together
+# p <- patchwork::wrap_plots(plot_list, ncol = 2, guides = 'collect') &
+#   theme(legend.position = 'bottom')
+# ggsave(file = "_output/_figures/worst_conf.pdf", p, width = 8, height = 6, dpi = 300)
 
-#putting them all together
+# creating df for absolute errors for all
+df_pred <- graph_cases %>%
+  group_by(target, conflictID) %>%
+  summarise(sum_error_gov_1 = sum(abs_error_gov_1), 
+            sum_error_gov_2 = sum(abs_error_gov_2), 
+            sum_error_gov_3 = sum(abs_error_gov_3)) %>%
+  ungroup() %>%
+  pivot_longer(
+    cols = starts_with("sum_error_gov_"),
+    names_to = "iteration",
+    names_prefix = "sum_error_gov_",
+    values_to = "sum_error",
+    values_drop_na = TRUE) %>%
+  mutate(iteration = as.numeric(iteration)) %>%
+  mutate(lab = paste0(target, " ", "(", conflictID, ")"))
+summary(df_pred)
+head(df_pred)
 
-plot_list <- list(worst_rf_gov, worst_rf_reb, worst_xgbdart_gov, worst_xgbdart_reb)
+p <- ggplot(df_pred, aes(x = iteration, y = sum_error, group = conflictID), show.legend = FALSE) +
+  geom_line(color = "red", alpha = 0.5) +
+  scale_x_continuous(breaks = seq(min(worst_cases_gov$iteration), max(worst_cases_gov$iteration), by = 1)) +
+  ggtitle("Worst predicted government support by conflict using XGBoost DART") +
+  labs(y = "Absolute error",
+       x = "Iteration") +
+  th +
+  scale_x_discrete(limits = c(1, 2, 3), expand = c(0, 0))
+ggsave(file = "_output/_figures/conf_abserror.png", p, width = 8, height = 6, dpi = 300)
 
-# putting the graphs together
-worst_conf <- patchwork::wrap_plots(plot_list, ncol = 2, guides = 'collect') &
-  theme(legend.position = 'bottom')
-ggsave(file = "_output/_figures/worst_conf.pdf", worst_conf, width = 24, height = 18, dpi = 300)
+
+
+
+
+# Prototyping graphs ------------------------------------------------------
+
+
 
 # looking at some specific countries with conflicts where models perform poorly
 ethiopia_conflicts <- unique(df.rf.graph$conflictID[df.rf.graph$target=="Ethiopia"])
