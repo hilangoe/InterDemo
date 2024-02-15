@@ -34,6 +34,7 @@ library(DataExplorer)
 #library(fastAdaboost) #not available anymore, but need it for Adaboost algo
 library(readxl)
 library(readstata13)
+library(pdp)
 
 # NOTE:
 # add suite of interactions, run through lasso, cut, then RF again
@@ -1868,7 +1869,8 @@ plot_list <- list(p1, p2, p3, p4)
 
 # putting the graphs together
 model_comp_boxplots3 <- patchwork::wrap_plots(plot_list, ncol = 2, guides = 'collect') &
-  theme(legend.position = 'bottom') & scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) & th & guides(fill = FALSE)
+  theme(legend.position = 'bottom') & scale_fill_manual(values=c("#999999", "#E69F00", "#56B4E9")) & th & guides(fill = FALSE) &
+  plot_annotation("Model performance across metrics", theme=theme(plot.title=element_text(hjust=0.1)))
 ggsave(file = "_output/_figures/model_comp_boxplots3.png", model_comp_boxplots3, width = 8, height = 6, dpi = 300)
 
 # let's graph F1 performance over iteration
@@ -1919,7 +1921,8 @@ p <- ggplot(f1_scores, aes(x = iter, y = f1_score, color = model, group = model)
        y = "Mean F1 Score",
        fill = "Model") +
   guides(color = FALSE) +
-  scale_x_discrete(limits = c(1, 2, 3), expand = c(0, 0))
+  scale_x_discrete(limits = c(1, 2, 3), expand = c(0, 0)) +
+  theme(axis.title.x = element_text( hjust = 0.47))
 ggsave(file = "_output/_figures/model_comp_line_f1.png", p, width = 8, height = 6, dpi = 300)
 
 # defining the order of models
@@ -2541,7 +2544,10 @@ ggsave(file = "_output/_figures/conf_abserror.png", p, width = 8, height = 6, dp
 
 # Prototyping graphs ------------------------------------------------------
 
+## partial dependence plots
 
+pdp_output <- partial(model_xgbdart3, pred.var = "mindist", train = df.ml.train3, grid.resolution = 20)
+plot(pdp_output)
 
 # looking at some specific countries with conflicts where models perform poorly
 ethiopia_conflicts <- unique(df.rf.graph$conflictID[df.rf.graph$target=="Ethiopia"])
@@ -2661,18 +2667,32 @@ save(models_take4, file = "_output/_models/models_take4.RData")
 
 # pulling out tuning results for graphs (might wanna do a df with all hyperparameters using do.call())
 tuning_results <- model_xgbdart4$results
-mean_f1_values <- tuning_results$Mean_F1
-hyperparameter <- "colsample_bytree"
-hyp_value <- tuning_results[[hyperparameter]]
-
-#max(tuning_results[[15]])
 
 ggplot(tuning_results, aes(x= Mean_F1)) +
   geom_density(alpha = 0.7, fill = "lightblue") +
   th
 
-df <- data.frame(cbind(mean_f1_values, hyp_value))
-head(df)
+hyper <- c('nrounds', 'max_depth', 'eta', 'colsample_bytree', 'min_child_weight')
+labels <- c('No. of rounds', 'Maximum depth', 'Learning rate', 'Subsampling of columns', 'Min. child weight')
+
+xgboost4_tune <- lapply(seq_along(hyper), function(i) {
+  ggplot(tuning_results, aes(x = !!sym(hyper[i]), y = mean_f1_values, fill = factor(!!sym(hyper[i])))) +
+    geom_violin(alpha = 0.7) +
+    coord_flip() +  
+    labs(x = labels[i],
+         y = "") +
+    th +
+    guides(fill = FALSE) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+})
+
+xgb3_tune_graphs <- patchwork::wrap_plots(xgboost4_tune, ncol = 5, guides = 'collect') &
+  theme(legend.position = 'bottom') &
+  plot_annotation("XGBoost DART model performance (Mean F1) vs. hyperparameters", theme=theme(plot.title=element_text(hjust=0.1)))
+
+ggsave(file = "_output/_figures/xgb4_tuning_violin.png", xgb3_tune_graphs, width = 8, height = 6, dpi = 300)
+
+
 
 ggplot(df, aes(x = hyp_value, y = mean_f1_values, fill = factor(hyp_value))) +
   geom_violin(alpha = 0.7) +
@@ -2681,6 +2701,15 @@ ggplot(df, aes(x = hyp_value, y = mean_f1_values, fill = factor(hyp_value))) +
        x = hyperparameter, y = "Mean F1") +
   th +
   guides(fill = FALSE)
+
+ggplot(tuning_results, aes(x = eta, y = Mean_F1, fill = factor(eta))) +
+  geom_violin(alpha = 0.7) +
+  coord_flip() +
+  labs(title = paste("Violin plot of Mean F1 vs.", hyperparameter),
+       x = hyperparameter, y = "Mean F1") +
+  th +
+  guides(fill = FALSE)
+
 
 # need to add in learning rate, at least, and maybe subsample and lambda and alpha
 # can tighten boosting iterations and max_depth, cut bottom values

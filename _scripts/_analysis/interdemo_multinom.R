@@ -222,7 +222,7 @@ p <- ggplot(df.graph, aes(x = mindist, y = polydist)) +
   th +
   theme(strip.text = element_text(color = "black"),
         axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "",
+  labs(title = "Relationship between political and geographic distance",
          x = "Minimum distance (km) between states",
          y = "Polyarchy distance")
 
@@ -239,7 +239,7 @@ p <- ggplot(subset(df.graph, intervention!="No intervention"),
   th +
   theme(strip.text = element_text(color = "black"),
         axis.text.x = element_text(angle = 45, hjust = 1)) + 
-  labs(title = "",
+  labs(title = "Relationship between political and geographic distance",
        x = "Minimum distance (km) between states",
        y = "Polyarchy distance",
        color = "Intervention",
