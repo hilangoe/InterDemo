@@ -2661,6 +2661,8 @@ model_xgbdart4 <- train(
 #stopCluster(num_cores)
 stopImplicitCluster()
 
+plot(model_xgbdart4)
+
 # saving model
 models_take4 <- list(model_xgbdart4)
 save(models_take4, file = "_output/_models/models_take4.RData")
@@ -2711,8 +2713,81 @@ ggplot(tuning_results, aes(x = eta, y = Mean_F1, fill = factor(eta))) +
   guides(fill = FALSE)
 
 
-# need to add in learning rate, at least, and maybe subsample and lambda and alpha
-# can tighten boosting iterations and max_depth, cut bottom values
+# Take 4: Fine-tuning XGBoost -----------------------------------------------
+
+model_xgbdart4$bestTune
+
+# taking the values from the best model except for max_depth, eta, gamma
+tune_grid_p <- expand.grid(
+  nrounds = 250, # number of boosting rounds
+  max_depth = c(6, 9, 12), # max depth of trees
+  eta = c(0.2, 0.25, 0.3, 0.35, 0.4), # learning rate, how much each new tree contributes to final model, low to prevent overfitting
+  gamma = c(1, 1.5, 2, 2.5, 3), # elnet suggests no regularization, but increasing grid space here because might need to make simpler trees and prevent overfitting
+  subsample = 0.8,
+  colsample_bytree = 0.9, # reducing complexity of each tree
+  rate_drop = 0.1,
+  skip_drop = 0.5,
+  min_child_weight = 5 # might increase to prevent overfitting
+)
+
+#revising the fit control
+fitControl_p <- trainControl(
+  method = "cv",
+  number = 5,
+  verboseIter = TRUE,
+  allowParallel = TRUE,
+  returnData = FALSE,
+  returnResamp = "all",
+  savePredictions = TRUE,
+  classProbs = TRUE,
+  summaryFunction = multiClassSummary
+)
+
+num_cores <- detectCores()
+
+# registering cores
+registerDoParallel(num_cores)
+
+set.seed(123)
+
+model_xgbdart4_retune <- train(
+  intervention ~ .,
+  data = df.ml.train3, # using same data as previous iteration
+  method = 'xgbDART',
+  tuneGrid = tune_grid_p,
+  trControl = fitControl_p,
+  metric = "Mean_F1",
+  verbose = FALSE,
+  nthread = 1
+)
+
+#stopCluster(num_cores)
+stopImplicitCluster()
+
+plot(model_xgbdart4_retune)
+# looking at some tiny performance improvements over take 3 (at the mean)
+
+tuning_results <- model_xgbdart4_retune$results
+
+hyper <- c('max_depth', 'eta', 'gamma')
+labels <- c('Maximum depth', 'Learning rate', 'Gamma')
+
+graphs <- lapply(seq_along(hyper), function(i) {
+  ggplot(tuning_results, aes(x = !!sym(hyper[i]), y = Mean_F1, fill = factor(!!sym(hyper[i])))) +
+    geom_violin(alpha = 0.7) +
+    coord_flip() +  
+    labs(x = labels[i],
+         y = "") +
+    th +
+    guides(fill = FALSE) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+})
+
+graphs_patch <- patchwork::wrap_plots(graphs, ncol = 3, guides = 'collect') &
+  theme(legend.position = 'bottom') &
+  plot_annotation("XGBoost DART model performance (Mean F1) vs. hyperparameters", theme=theme(plot.title=element_text(hjust=0.1)))
+
+ggsave(file = "_output/_figures/xgb4_tuning_violin_2.png", graphs_patch, width = 8, height = 6, dpi = 300)
 
 # Test pre-processing -----------------------------------------------------------
 
